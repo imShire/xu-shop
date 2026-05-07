@@ -1,0 +1,63 @@
+.settings-page {
+  padding: 28px 28px 160px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+
+  &__group {
+    border: 2px solid var(--ds-color-line);
+    border-radius: 28px;
+    overflow: hidden;
+    background: var(--ds-color-bg-card);
+    box-shadow: var(--ds-shadow);
+  }
+
+  &__avatar {
+    background: var(--ds-color-primary-light);
+    color: var(--ds-color-primary);
+  }
+
+  &__avatar-cell {
+    .nut-cell-right {
+      display: flex;
+      align-items: center;
+    }
+  }
+
+  &__value {
+    font-size: 28px;
+    color: var(--ds-color-text-primary);
+
+    &--muted { color: var(--ds-color-text-secondary); }
+  }
+
+  &__popup {
+    padding: 40px 32px 64px;
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+  }
+
+  &__popup-title {
+    font-size: 34px;
+    font-weight: 600;
+    color: var(--ds-color-text-primary);
+    text-align: center;
+  }
+
+  &__popup-input {
+    border: 3px solid var(--ds-color-line);
+    border-radius: 20px;
+    padding: 24px 28px;
+    font-size: 28px;
+    background: var(--ds-color-bg-mist);
+    color: var(--ds-color-text-primary);
+
+    &:focus { border-color: var(--ds-color-primary); background: var(--ds-color-bg-card); }
+  }
+
+  &__popup-btn {
+    width: 100%;
+    margin-top: 8px;
+  }
+}

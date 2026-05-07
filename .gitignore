@@ -1,0 +1,58 @@
+# 系统
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+*.log
+
+# Go
+server/bin/
+server/dist/
+server/vendor/
+server/.env
+server/coverage.*
+server/*.test
+server/*.out
+server/uploads/*
+server/*/README.md
+server/README.md
+
+# Node
+node_modules/
+*.tsbuildinfo
+.pnpm-store/
+.eslintcache
+
+# Admin
+admin/dist/
+admin/uploads/*
+admin/.env.local
+admin/.env.*.local
+admin/*/README.md
+admin/README.md
+
+# Client (Taro)
+client/dist/
+client/.temp/
+client/.rn_temp/
+client/.env.local
+client/.env.*.local
+client/**/README.md
+client/README.md
+
+# 临时
+*.tmp
+tmp/
+.cache/
+
+# 部署/敏感
+secrets/
+*.pem
+*.key
+!server/api/*.yaml
+
+.claude/*
+docs/**
+mock/**
+scripts/

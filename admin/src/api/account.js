@@ -1,0 +1,16 @@
+import request from '@/utils/request';
+export const adminLogin = (data) => request.post('/admin/auth/login', data);
+export const adminLogout = () => request.post('/admin/auth/logout');
+export const getCaptcha = () => request.post('/admin/auth/captcha');
+export const getAdminMe = () => request.get('/admin/me');
+export const getAdminList = (params) => request.get('/admin/admins', { params });
+export const createAdmin = (data) => request.post('/admin/admins', data);
+export const updateAdmin = (id, data) => request.put(`/admin/admins/${id}`, data);
+export const disableAdmin = (id) => request.post(`/admin/admins/${id}/disable`);
+export const enableAdmin = (id) => request.post(`/admin/admins/${id}/enable`);
+export const resetAdminPwd = (id, data) => request.post(`/admin/admins/${id}/reset-pwd`, data);
+export const getRoleList = () => request.get('/admin/roles');
+export const createRole = (data) => request.post('/admin/roles', data);
+export const updateRole = (id, data) => request.put(`/admin/roles/${id}`, data);
+export const deleteRole = (id) => request.delete(`/admin/roles/${id}`);
+export const getPermissions = () => request.get('/admin/permissions');

@@ -1,0 +1,119 @@
+// Element Plus 主题色覆盖
+// 注意：按需导入模式下直接在 CSS 变量中覆盖
+:root {
+  --el-color-primary: #f59e0b;
+  --el-color-primary-dark-2: #d97706;
+  --el-color-primary-light-3: #fbbf24;
+  --el-color-primary-light-5: #fcd34d;
+  --el-color-primary-light-7: #fde68a;
+  --el-color-primary-light-8: #fef3c7;
+  --el-color-primary-light-9: #fffbeb;
+}
+
+// 按钮
+.el-button--primary {
+  --el-button-bg-color: #f59e0b;
+  --el-button-border-color: #f59e0b;
+  --el-button-hover-bg-color: #fbbf24;
+  --el-button-hover-border-color: #fbbf24;
+  --el-button-active-bg-color: #d97706;
+  --el-button-active-border-color: #d97706;
+}
+
+// 菜单（侧边栏）
+.el-menu {
+  border-right: none !important;
+}
+
+.el-menu--collapse {
+  width: var(--sidebar-collapsed-width) !important;
+}
+
+.el-sub-menu__title,
+.el-menu-item {
+  color: var(--sidebar-text) !important;
+  height: 44px !important;
+  line-height: 44px !important;
+  border-radius: 6px;
+  margin: 2px 8px;
+
+  &:hover {
+    background-color: var(--sidebar-hover) !important;
+    color: #fff !important;
+  }
+}
+
+.el-menu-item.is-active {
+  background-color: rgba(245, 158, 11, 0.15) !important;
+  color: var(--sidebar-active) !important;
+  border-left: 3px solid var(--sidebar-active);
+  font-weight: 600;
+}
+
+.el-sub-menu.is-active > .el-sub-menu__title {
+  color: var(--sidebar-active) !important;
+}
+
+// 表格
+.el-table {
+  --el-table-header-bg-color: #f8f9fa;
+  --el-table-row-hover-bg-color: #fffbeb;
+  border-radius: 8px;
+  overflow: hidden;
+
+  th.el-table__cell {
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .el-table__row {
+    height: 44px;
+  }
+}
+
+// 卡片
+.el-card {
+  border-radius: 8px;
+  border-color: var(--border-color);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06) !important;
+}
+
+// 标签
+.el-tag {
+  border-radius: 4px;
+}
+
+// 分页
+.el-pagination.is-background .el-pager li:not(.is-disabled).is-active {
+  background-color: var(--el-color-primary);
+}
+
+// 输入框 focus
+.el-input__wrapper.is-focus {
+  box-shadow: 0 0 0 1px var(--el-color-primary) inset !important;
+}
+
+// 对话框
+.el-dialog {
+  border-radius: 12px;
+
+  .el-dialog__header {
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 16px;
+    margin-bottom: 0;
+  }
+}
+
+// 抽屉
+.el-drawer {
+  .el-drawer__header {
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 0;
+    padding-bottom: 16px;
+  }
+}
+
+// Badge
+.el-badge__content {
+  background-color: #ef4444;
+}

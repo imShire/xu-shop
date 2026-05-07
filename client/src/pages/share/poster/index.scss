@@ -1,0 +1,89 @@
+.share-poster-page {
+  padding: 24px 14px 100px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+
+  &__card {
+    width: 100%;
+    border: 1px solid var(--ds-color-line);
+    border-radius: 16px;
+    overflow: hidden;
+    background: var(--ds-color-bg-card);
+    box-shadow: var(--ds-shadow-lg);
+  }
+
+  &__image {
+    width: 100%;
+    height: 320px;
+  }
+
+  &__content {
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  &__shop-name {
+    font-size: 13px;
+    color: var(--ds-color-primary);
+    font-weight: 600;
+    letter-spacing: 1px;
+  }
+
+  &__title {
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--ds-color-text-primary);
+    line-height: 1.4;
+  }
+
+  &__subtitle {
+    font-size: 13px;
+    color: var(--ds-color-text-secondary);
+  }
+
+  &__qrcode-area {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 10px;
+    padding-top: 12px;
+    border-top: 1px solid var(--ds-color-line-light);
+  }
+
+  &__qrcode-placeholder {
+    width: 72px;
+    height: 72px;
+    border-radius: 8px;
+    background: var(--ds-color-bg-mist);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--ds-color-line);
+    flex-shrink: 0;
+  }
+
+  &__qrcode-text {
+    font-size: 11px;
+    color: var(--ds-color-text-secondary);
+  }
+
+  &__qrcode-hint {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  &__qrcode-hint-text {
+    font-size: 13px;
+    color: var(--ds-color-text-primary);
+    line-height: 1.5;
+  }
+
+  &__actions {
+    width: 100%;
+  }
+}

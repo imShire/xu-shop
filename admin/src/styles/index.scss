@@ -1,0 +1,264 @@
+@use './variables.scss';
+@use './element-overrides.scss';
+
+// ---- Reset ----
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+  font-family: -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  color: var(--text-regular);
+  background-color: var(--content-bg);
+  font-size: 14px;
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+// ---- Scrollbar ----
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: rgba(144, 147, 153, 0.3);
+  border-radius: 3px;
+
+  &:hover {
+    background-color: rgba(144, 147, 153, 0.6);
+  }
+}
+
+// ---- Layout ----
+.layout-container {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.sidebar {
+  width: var(--sidebar-width);
+  min-width: var(--sidebar-width);
+  height: 100vh;
+  background-color: var(--sidebar-bg);
+  display: flex;
+  flex-direction: column;
+  transition: width 0.3s ease;
+  overflow: hidden;
+
+  &.collapsed {
+    width: var(--sidebar-collapsed-width);
+    min-width: var(--sidebar-collapsed-width);
+  }
+}
+
+.main-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.header {
+  height: var(--header-height);
+  min-height: var(--header-height);
+  background-color: var(--header-bg);
+  border-bottom: 1px solid var(--header-border);
+  display: flex;
+  align-items: center;
+  padding: 0 20px;
+  z-index: 100;
+}
+
+.content-wrapper {
+  flex: 1;
+  overflow-y: auto;
+  background-color: var(--content-bg);
+  padding: 16px;
+}
+
+// ---- Tags Bar ----
+.tags-bar {
+  height: 36px;
+  min-height: 36px;
+  background: var(--card-bg);
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  gap: 6px;
+  overflow-x: auto;
+  overflow-y: hidden;
+
+  &::-webkit-scrollbar {
+    height: 3px;
+  }
+
+  .tag-item {
+    height: 24px;
+    line-height: 24px;
+    padding: 0 10px;
+    border-radius: 4px;
+    border: 1px solid var(--border-color);
+    font-size: 12px;
+    cursor: pointer;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s;
+    flex-shrink: 0;
+
+    &:hover {
+      background-color: var(--el-color-primary-light-9);
+      border-color: var(--el-color-primary-light-7);
+      color: var(--el-color-primary);
+    }
+
+    &.active {
+      background-color: var(--el-color-primary);
+      border-color: var(--el-color-primary);
+      color: #fff;
+    }
+
+    .close-icon {
+      font-size: 10px;
+      opacity: 0.6;
+      &:hover {
+        opacity: 1;
+      }
+    }
+  }
+}
+
+// ---- Page Card ----
+.page-card {
+  background: var(--card-bg);
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+// ---- Stats Card ----
+.stats-card {
+  background: var(--card-bg);
+  border-radius: 8px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+
+  .stats-label {
+    font-size: 13px;
+    color: var(--text-secondary);
+  }
+
+  .stats-value {
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--text-primary);
+    line-height: 1;
+  }
+
+  .stats-sub {
+    font-size: 12px;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .up {
+    color: #22c55e;
+  }
+
+  .down {
+    color: #ef4444;
+  }
+}
+
+// ---- Transition ----
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+.slide-fade-enter-active {
+  transition: all 0.25s ease-out;
+}
+
+.slide-fade-leave-active {
+  transition: all 0.2s ease-in;
+}
+
+.slide-fade-enter-from,
+.slide-fade-leave-to {
+  transform: translateX(10px);
+  opacity: 0;
+}
+
+// ---- Utility ----
+.flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.text-truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.w-full {
+  width: 100%;
+}
+
+.cursor-pointer {
+  cursor: pointer;
+}
+
+// ---- Pro Table ----
+.pro-table {
+  .search-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+
+  .pagination-wrapper {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 16px;
+  }
+}

@@ -1,0 +1,15 @@
+.empty-state {
+  padding: 96px 40px;
+
+  .nut-empty-title {
+    color: var(--ds-color-text-primary);
+    font-size: 32px;
+    font-weight: 600;
+  }
+
+  .nut-empty-description {
+    color: var(--ds-color-text-secondary);
+    font-size: 26px;
+    line-height: 1.6;
+  }
+}

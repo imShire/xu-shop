@@ -1,0 +1,84 @@
+name: xu-shop-demo
+
+# 演示环境：去掉 worker / asynqmon，Redis 无持久化
+# 异步任务（订单超时关闭、自动确认）不会执行，其余功能正常
+
+services:
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: shop
+      POSTGRES_PASSWORD: shop
+      POSTGRES_DB: shop
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U shop"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    # 无持久化，重启数据清空，演示用足够
+    command: redis-server --save ""
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      retries: 5
+
+  migrate:
+    build:
+      context: ./
+      dockerfile: deploy/Dockerfile
+      target: migrate
+    environment:
+      DB_DSN: postgres://shop:shop@postgres:5432/shop?sslmode=disable
+    command: ["/bin/sh", "-c", "goose -dir /migrations postgres $$DB_DSN up"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    build:
+      context: ./
+      dockerfile: deploy/Dockerfile
+      target: api
+    ports:
+      - "8080:8080"
+    environment:
+      APP_ENV: dev
+      APP_PORT: "8080"
+      APP_SECRET_KEY: demo-secret
+      INSTANCE_ID: "0"
+      DB_DSN: postgres://shop:shop@postgres:5432/shop?sslmode=disable
+      REDIS_ADDR: redis:6379
+      ASYNQ_REDIS_ADDR: redis:6379
+      ASYNQ_REDIS_DB: "1"
+      JWT_SECRET: demo-jwt-secret
+      WXPAY_ENV: sandbox
+      LOG_LEVEL: info
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./
+      dockerfile: deploy/Dockerfile
+      target: frontend
+      args:
+        VITE_API_BASE: http://localhost:8080/api/v1
+        VITE_APP_TITLE: xu-shop后台
+        TARO_APP_API: http://localhost:8080/api/v1
+    ports:
+      - "5173:5173"   # admin
+      - "10086:10086" # client H5
+    depends_on:
+      - api
+
+volumes:
+  pgdata:

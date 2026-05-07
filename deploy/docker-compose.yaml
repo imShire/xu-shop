@@ -1,0 +1,123 @@
+name: xu-shop
+
+services:
+  # ─── 基础设施 ──────────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: shop
+      POSTGRES_PASSWORD: shop
+      POSTGRES_DB: shop
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U shop"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      retries: 5
+
+  asynqmon:
+    image: hibiken/asynqmon:latest
+    command: --redis-addr=redis:6379
+    ports:
+      - "8888:8080"  # 任务队列监控
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  # ─── 数据库迁移（一次性任务）────────────────────────────────────────────────────
+  migrate:
+    build:
+      context: ./
+      dockerfile: deploy/Dockerfile
+      target: migrate
+    environment:
+      DB_DSN: postgres://shop:shop@postgres:5432/shop?sslmode=disable
+    command: ["/bin/sh", "-c", "goose -dir /migrations postgres $$DB_DSN up"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  # ─── 后端 API ──────────────────────────────────────────────────────────────────
+  api:
+    build:
+      context: ./
+      dockerfile: deploy/Dockerfile
+      target: api
+    ports:
+      - "8080:8080"
+    environment:
+      APP_ENV: dev
+      APP_PORT: "8080"
+      APP_SECRET_KEY: dev-secret-change-in-prod
+      INSTANCE_ID: "0"
+      DB_DSN: postgres://shop:shop@postgres:5432/shop?sslmode=disable
+      REDIS_ADDR: redis:6379
+      REDIS_DB: "0"
+      ASYNQ_REDIS_ADDR: redis:6379
+      ASYNQ_REDIS_DB: "1"
+      JWT_SECRET: dev-jwt-secret-change-in-prod
+      JWT_USER_TTL_HOURS: "720"
+      JWT_ADMIN_TTL_HOURS: "8"
+      WXPAY_ENV: sandbox
+      LOG_LEVEL: debug
+      PROM_METRICS_ENABLED: "true"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+
+  # ─── 后台 Worker ───────────────────────────────────────────────────────────────
+  worker:
+    build:
+      context: ./
+      dockerfile: deploy/Dockerfile
+      target: worker
+    environment:
+      APP_ENV: dev
+      INSTANCE_ID: "1"
+      DB_DSN: postgres://shop:shop@postgres:5432/shop?sslmode=disable
+      REDIS_ADDR: redis:6379
+      REDIS_DB: "0"
+      ASYNQ_REDIS_ADDR: redis:6379
+      ASYNQ_REDIS_DB: "1"
+      JWT_SECRET: dev-jwt-secret-change-in-prod
+      WXPAY_ENV: sandbox
+      LOG_LEVEL: debug
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+
+  # ─── 前端（admin + client H5 合并到同一个 nginx 容器）────────────────────────────
+  frontend:
+    build:
+      context: ./
+      dockerfile: deploy/Dockerfile
+      target: frontend
+      args:
+        VITE_API_BASE: http://localhost:8080/api/v1
+        VITE_APP_TITLE: xu-shop后台
+        TARO_APP_API: http://localhost:8080/api/v1
+    ports:
+      - "5173:5173"   # admin
+      - "10086:10086" # client H5
+    depends_on:
+      - api
+
+volumes:
+  pgdata:

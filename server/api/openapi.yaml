@@ -1,0 +1,3017 @@
+openapi: "3.1.0"
+info:
+  title: xu-shop API
+  version: "1.1.0"
+  description: xu-shop 后端 API 文档（Phase 0-5）
+
+servers:
+  - url: /api/v1
+    description: 本地开发环境
+
+tags:
+  - name: C端认证
+    description: 用户登录/注销相关接口
+  - name: C端用户
+    description: 用户信息和注销管理
+  - name: C端地址
+    description: 用户收货地址管理
+  - name: C端商品
+    description: 商品浏览、收藏、浏览历史
+  - name: C端购物车
+    description: 购物车管理
+  - name: C端订单
+    description: C 端订单创建与查询
+  - name: C端支付
+    description: 微信支付
+  - name: C端物流
+    description: 订单物流轨迹
+  - name: Admin认证
+    description: 管理员登录/注销相关接口
+  - name: Admin用户
+    description: 管理员操作用户
+  - name: Admin管理员
+    description: 管理员账户管理
+  - name: Admin角色权限
+    description: 角色和权限点管理
+  - name: Admin商品
+    description: 商品与分类管理
+  - name: Admin订单
+    description: 订单管理
+  - name: Admin售后
+    description: 售后处理
+  - name: Admin支付
+    description: 支付与退款管理
+  - name: Admin发货
+    description: 物流与发货管理
+  - name: Admin库存
+    description: 库存调整与预警
+  - name: Admin统计
+    description: 数据统计报表
+  - name: Admin通知
+    description: 消息通知与模板
+  - name: 开放接口
+    description: 无需鉴权的公开接口
+  - name: 回调通知
+    description: 第三方回调（微信支付、快递）
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    CookieAuth:
+      type: apiKey
+      in: cookie
+      name: access_token
+
+  schemas:
+    Response:
+      type: object
+      properties:
+        code:
+          type: integer
+          example: 0
+        message:
+          type: string
+          example: ok
+        data:
+          nullable: true
+        request_id:
+          type: string
+          example: "550e8400-e29b-41d4-a716-446655440000"
+
+    Banner:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        title: { type: string }
+        image_url: { type: string }
+        link_url: { type: string }
+        sort: { type: integer }
+        is_active: { type: boolean }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    BannerForm:
+      type: object
+      properties:
+        title: { type: string }
+        image_url: { type: string }
+        link_url: { type: string }
+        sort: { type: integer }
+
+    NavIcon:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Int64 as string，防止 JS BigInt 精度丢失
+        title: { type: string }
+        icon_url: { type: string }
+        link_url: { type: string }
+        sort: { type: integer }
+        is_active: { type: boolean }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    NavIconForm:
+      type: object
+      properties:
+        title: { type: string }
+        icon_url: { type: string }
+        link_url: { type: string }
+        sort: { type: integer }
+        is_active: { type: boolean }
+
+    CategoryResp:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Int64 as string
+        parent_id:
+          type: string
+          description: Int64 as string，0 表示顶级分类
+        name:
+          type: string
+        icon:
+          type: string
+          description: 分类图片 URL
+        sort:
+          type: integer
+        status:
+          type: string
+          enum: [enabled, disabled]
+        created_at:
+          type: string
+          format: date-time
+        children:
+          type: array
+          items:
+            $ref: "#/components/schemas/CategoryResp"
+          description: 子分类列表（递归）
+
+    TokenResp:
+      type: object
+      properties:
+        access_token:
+          type: string
+        expires_in:
+          type: integer
+          description: 秒
+
+    UserResp:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        phone:
+          type: string
+          nullable: true
+        nickname:
+          type: string
+          nullable: true
+        avatar:
+          type: string
+          nullable: true
+        gender:
+          type: integer
+        status:
+          type: string
+          enum: [active, disabled, deactivating, deactivated]
+        created_at:
+          type: string
+          format: date-time
+
+    AdminResp:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        username:
+          type: string
+        real_name:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [active, disabled]
+        last_login_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    AddressResp:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        phone:
+          type: string
+        province_code:
+          type: string
+          nullable: true
+        province:
+          type: string
+          nullable: true
+        city_code:
+          type: string
+          nullable: true
+        city:
+          type: string
+          nullable: true
+        district_code:
+          type: string
+          nullable: true
+        district:
+          type: string
+          nullable: true
+        street_code:
+          type: string
+          nullable: true
+        street:
+          type: string
+          nullable: true
+        detail:
+          type: string
+        is_default:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+
+    RegionResp:
+      type: object
+      properties:
+        code:
+          type: string
+        parent_code:
+          type: string
+          nullable: true
+        name:
+          type: string
+        level:
+          type: integer
+        has_children:
+          type: boolean
+
+    RoleResp:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        code:
+          type: string
+        name:
+          type: string
+        is_system:
+          type: boolean
+        permissions:
+          type: array
+          items:
+            $ref: "#/components/schemas/PermissionResp"
+
+    PermissionResp:
+      type: object
+      properties:
+        code:
+          type: string
+        module:
+          type: string
+        action:
+          type: string
+        name:
+          type: string
+
+    SkuDetail:
+      type: object
+      properties:
+        id:
+          type: string
+          nullable: true
+          description: 新建时为空
+        attrs:
+          type: object
+          additionalProperties: true
+          description: 规格键值对，如 {"颜色":"黑"}
+        price_cents:
+          type: integer
+          format: int64
+        original_price_cents:
+          type: integer
+          format: int64
+          nullable: true
+        stock:
+          type: integer
+        weight_g:
+          type: integer
+        sku_code:
+          type: string
+          nullable: true
+        barcode:
+          type: string
+          nullable: true
+        image:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [active, disabled]
+        low_stock_threshold:
+          type: integer
+
+    SkuInput:
+      type: object
+      required: [price_cents]
+      properties:
+        id:
+          type: string
+          nullable: true
+          description: 有则更新，无则新建
+        attrs:
+          type: object
+          additionalProperties: true
+        price_cents:
+          type: integer
+          format: int64
+        original_price_cents:
+          type: integer
+          format: int64
+          nullable: true
+        stock:
+          type: integer
+        weight_g:
+          type: integer
+        sku_code:
+          type: string
+          nullable: true
+        barcode:
+          type: string
+          nullable: true
+        image:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [active, disabled]
+        low_stock_threshold:
+          type: integer
+
+    ProductListItem:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        subtitle:
+          type: string
+          nullable: true
+        main_image:
+          type: string
+        category_id:
+          type: string
+        category_name:
+          type: string
+          nullable: true
+        unit:
+          type: string
+        is_virtual:
+          type: boolean
+        status:
+          type: string
+          enum: [draft, onsale, offsale]
+        price_min_cents:
+          type: integer
+          format: int64
+        price_max_cents:
+          type: integer
+          format: int64
+        total_stock:
+          type: integer
+        sales:
+          type: integer
+        virtual_sales:
+          type: integer
+        freight_template_id:
+          type: string
+          nullable: true
+        freight_template_name:
+          type: string
+          nullable: true
+        sort:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+
+    ProductDetail:
+      allOf:
+        - $ref: '#/components/schemas/ProductListItem'
+        - type: object
+          properties:
+            images:
+              type: array
+              items:
+                type: string
+            video_url:
+              type: string
+              nullable: true
+            detail_html:
+              type: string
+              nullable: true
+            tags:
+              type: array
+              items:
+                type: string
+            on_sale_at:
+              type: string
+              format: date-time
+              nullable: true
+            specs:
+              type: array
+              items:
+                type: object
+                properties:
+                  id:
+                    type: string
+                  name:
+                    type: string
+                  sort:
+                    type: integer
+                  values:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        value:
+                          type: string
+                        sort:
+                          type: integer
+            skus:
+              type: array
+              items:
+                $ref: '#/components/schemas/SkuDetail'
+
+    UpsertProductRequest:
+      type: object
+      required: [title, category_id, main_image]
+      properties:
+        title:
+          type: string
+          maxLength: 60
+        subtitle:
+          type: string
+          maxLength: 120
+          nullable: true
+        main_image:
+          type: string
+          maxLength: 512
+        images:
+          type: array
+          items:
+            type: string
+        video_url:
+          type: string
+          nullable: true
+        detail_html:
+          type: string
+          nullable: true
+        tags:
+          type: array
+          items:
+            type: string
+        category_id:
+          type: integer
+          format: int64
+        unit:
+          type: string
+          maxLength: 16
+        is_virtual:
+          type: boolean
+        freight_template_id:
+          type: integer
+          format: int64
+          nullable: true
+        virtual_sales:
+          type: integer
+        sort:
+          type: integer
+        on_sale_at:
+          type: string
+          format: date-time
+          nullable: true
+        status:
+          type: string
+          enum: [draft, onsale, offsale]
+        specs:
+          type: array
+          maxItems: 3
+          items:
+            type: object
+            required: [name, values]
+            properties:
+              name:
+                type: string
+                maxLength: 32
+              values:
+                type: array
+                minItems: 1
+                items:
+                  type: string
+        skus:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/SkuInput'
+
+paths:
+  # ========== C 端认证 ==========
+  /c/auth/mp/login:
+    post:
+      tags: [C端认证]
+      summary: 小程序登录
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              properties:
+                code:
+                  type: string
+      responses:
+        "200":
+          description: 登录成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Response"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          access_token:
+                            type: string
+                          refresh_token:
+                            type: string
+                          expires_in:
+                            type: integer
+                          user_id:
+                            type: integer
+                            format: int64
+
+  /c/auth/h5/code:
+    get:
+      tags: [C端认证]
+      summary: 获取公众号 OAuth2 授权 URL
+      parameters:
+        - name: redirect_uri
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: state
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: 授权 URL
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Response"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          url:
+                            type: string
+
+  /c/auth/h5/callback:
+    get:
+      tags: [C端认证]
+      summary: 公众号 OAuth2 回调（设置 HttpOnly cookie + 302 重定向）
+      parameters:
+        - name: code
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: state
+          in: query
+          schema:
+            type: string
+      responses:
+        "302":
+          description: 重定向到前端首页，access_token 已设置为 HttpOnly cookie
+
+  /c/auth/bind-phone:
+    post:
+      tags: [C端认证]
+      summary: 绑定手机号（需登录 + 敏感接口标记）
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [encrypted_data, iv]
+              properties:
+                encrypted_data:
+                  type: string
+                iv:
+                  type: string
+      responses:
+        "200":
+          description: 绑定成功
+
+  /c/auth/refresh:
+    post:
+      tags: [C端认证]
+      summary: 刷新 access token（refresh token 一次性）
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refresh_token:
+                  type: string
+      responses:
+        "200":
+          description: 新 token
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Response"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/TokenResp"
+
+  /c/auth/logout:
+    post:
+      tags: [C端认证]
+      summary: 退出登录
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+      responses:
+        "200":
+          description: 退出成功
+
+  /c/me:
+    get:
+      tags: [C端用户]
+      summary: 查询当前用户信息
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+      responses:
+        "200":
+          description: 用户信息
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Response"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/UserResp"
+    put:
+      tags: [C端用户]
+      summary: 更新用户资料
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                nickname:
+                  type: string
+                avatar:
+                  type: string
+                gender:
+                  type: integer
+                birthday:
+                  type: string
+                  format: date
+      responses:
+        "200":
+          description: 更新成功
+
+  /c/me/deactivate:
+    post:
+      tags: [C端用户]
+      summary: 申请注销（30 天冷静期）
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+      responses:
+        "200":
+          description: 注销申请已提交
+
+  /c/me/deactivate/cancel:
+    post:
+      tags: [C端用户]
+      summary: 撤销注销申请
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+      responses:
+        "200":
+          description: 撤销成功
+
+  # ========== C 端地址 ==========
+  /c/addresses:
+    get:
+      tags: [C端地址]
+      summary: 查询地址列表
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+      responses:
+        "200":
+          description: 地址列表
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Response"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/AddressResp"
+    post:
+      tags: [C端地址]
+      summary: 新增地址（每用户限 20 条）
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, phone, detail]
+              properties:
+                name:
+                  type: string
+                phone:
+                  type: string
+                province_code:
+                  type: string
+                province:
+                  type: string
+                city_code:
+                  type: string
+                city:
+                  type: string
+                district_code:
+                  type: string
+                district:
+                  type: string
+                street_code:
+                  type: string
+                street:
+                  type: string
+                detail:
+                  type: string
+                is_default:
+                  type: boolean
+      responses:
+        "200":
+          description: 创建成功
+
+  /c/addresses/{id}:
+    get:
+      tags: [C端地址]
+      summary: 查询单条地址
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: 地址详情
+    put:
+      tags: [C端地址]
+      summary: 更新地址
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                phone:
+                  type: string
+                province_code:
+                  type: string
+                province:
+                  type: string
+                city_code:
+                  type: string
+                city:
+                  type: string
+                district_code:
+                  type: string
+                district:
+                  type: string
+                street_code:
+                  type: string
+                street:
+                  type: string
+                detail:
+                  type: string
+                is_default:
+                  type: boolean
+      responses:
+        "200":
+          description: 更新成功
+    delete:
+      tags: [C端地址]
+      summary: 删除地址
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: 删除成功
+
+  /c/addresses/{id}/default:
+    post:
+      tags: [C端地址]
+      summary: 设置默认地址
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: 设置成功
+
+  /c/addresses/decrypt-wx:
+    post:
+      tags: [C端地址]
+      summary: 解密微信小程序地址数据（不落库）
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [encrypted_data, iv]
+              properties:
+                encrypted_data:
+                  type: string
+                iv:
+                  type: string
+      responses:
+        "200":
+          description: 解密后的地址数据
+
+  # ========== 开放接口 ==========
+  /open/regions:
+    get:
+      tags: [开放接口]
+      summary: 查询行政区划列表（Cache-Control public max-age=86400）
+      parameters:
+        - name: parent_code
+          in: query
+          schema:
+            type: string
+          description: 父级区划 code，为空时返回省级列表
+      responses:
+        "200":
+          description: 区划列表
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                example: "public, max-age=86400"
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Response"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/RegionResp"
+
+  # ========== Admin 认证 ==========
+  /admin/auth/captcha:
+    post:
+      tags: [Admin认证]
+      summary: 获取图形验证码（30次/分钟/IP 限流）
+      responses:
+        "200":
+          description: 验证码
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Response"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          captcha_id:
+                            type: string
+                          image_b64:
+                            type: string
+                            description: base64 编码的 PNG 图片
+
+  /admin/auth/login:
+    post:
+      tags: [Admin认证]
+      summary: 管理员登录（5次/分钟/IP 限流）
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password, captcha_id, captcha_code]
+              properties:
+                username:
+                  type: string
+                password:
+                  type: string
+                captcha_id:
+                  type: string
+                captcha_code:
+                  type: string
+      responses:
+        "200":
+          description: 登录成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Response"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/TokenResp"
+
+  /admin/auth/logout:
+    post:
+      tags: [Admin认证]
+      summary: 管理员退出登录
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: 退出成功
+
+  /admin/me:
+    get:
+      tags: [Admin认证]
+      summary: 查询当前管理员信息
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: 管理员信息
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Response"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/AdminResp"
+
+  # ========== Admin 管理员管理 ==========
+  /admin/admins:
+    get:
+      tags: [Admin管理员]
+      summary: 分页查询管理员列表（需权限 system.admin.view）
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: 管理员列表
+    post:
+      tags: [Admin管理员]
+      summary: 创建管理员（需权限 system.admin.create）
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username:
+                  type: string
+                password:
+                  type: string
+                  description: 强密码（≥12字符，含字母+数字+特殊符号）
+                real_name:
+                  type: string
+                phone:
+                  type: string
+                role_ids:
+                  type: array
+                  items:
+                    type: integer
+                    format: int64
+      responses:
+        "200":
+          description: 创建成功
+
+  /admin/admins/{id}:
+    put:
+      tags: [Admin管理员]
+      summary: 更新管理员（需权限 system.admin.edit）
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: 更新成功
+
+  /admin/admins/{id}/disable:
+    post:
+      tags: [Admin管理员]
+      summary: 禁用管理员（需权限 system.admin.disable）
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: 禁用成功
+
+  /admin/admins/{id}/reset-pwd:
+    post:
+      tags: [Admin管理员]
+      summary: 重置管理员密码（需权限 system.admin.reset_pwd + 敏感接口）
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [new_password]
+              properties:
+                new_password:
+                  type: string
+      responses:
+        "200":
+          description: 重置成功
+
+  # ========== Admin 角色权限 ==========
+  /admin/roles:
+    get:
+      tags: [Admin角色权限]
+      summary: 查询角色列表（需权限 system.role.view）
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: 角色列表
+    post:
+      tags: [Admin角色权限]
+      summary: 创建角色（需权限 system.role.create）
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code, name]
+              properties:
+                code:
+                  type: string
+                name:
+                  type: string
+                perm_codes:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        "200":
+          description: 创建成功
+
+  /admin/roles/{id}:
+    put:
+      tags: [Admin角色权限]
+      summary: 更新角色（需权限 system.role.edit）
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: 更新成功
+    delete:
+      tags: [Admin角色权限]
+      summary: 删除角色（需权限 system.role.delete，系统角色不可删）
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: 删除成功
+
+  /admin/permissions:
+    get:
+      tags: [Admin角色权限]
+      summary: 查询所有权限点（需权限 system.role.view）
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: 权限点列表
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Response"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/PermissionResp"
+
+  # ========== C 端商品（Phase 2）==========
+  /c/categories:
+    get:
+      tags: [C端商品]
+      summary: 查询商品分类列表（树形结构）
+      responses:
+        "200":
+          description: 分类树列表
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CategoryResp"
+
+  /c/products:
+    get:
+      tags: [C端商品]
+      summary: 分页查询商品列表
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: page_size
+          in: query
+          schema: { type: integer, default: 20 }
+        - name: category_id
+          in: query
+          schema: { type: integer, format: int64 }
+        - name: keyword
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: 商品列表
+
+  /c/products/{id}:
+    get:
+      tags: [C端商品]
+      summary: 查询商品详情
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "200":
+          description: 商品详情
+
+  /c/favorites/{product_id}:
+    post:
+      tags: [C端商品]
+      summary: 收藏商品
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+      parameters:
+        - name: product_id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "200":
+          description: 收藏成功
+    delete:
+      tags: [C端商品]
+      summary: 取消收藏
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+      parameters:
+        - name: product_id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "200":
+          description: 取消成功
+
+  /c/favorites:
+    get:
+      tags: [C端商品]
+      summary: 查询收藏列表
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+      responses:
+        "200":
+          description: 收藏列表
+
+  /c/view-history:
+    get:
+      tags: [C端商品]
+      summary: 查询浏览历史
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+      responses:
+        "200":
+          description: 浏览历史列表
+    delete:
+      tags: [C端商品]
+      summary: 清空浏览历史
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+      responses:
+        "200":
+          description: 清空成功
+
+  # ========== Admin 商品（Phase 2）==========
+  /admin/categories:
+    get:
+      tags: [Admin商品]
+      summary: 查询分类列表（需权限 category.view）
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: 分类列表
+    post:
+      tags: [Admin商品]
+      summary: 创建分类（需权限 category.create）
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string }
+                parent_id: { type: string, description: "Int64 as string" }
+                sort: { type: integer }
+      responses:
+        "200":
+          description: 创建成功
+
+  /admin/categories/{id}:
+    put:
+      tags: [Admin商品]
+      summary: 更新分类（需权限 category.edit）
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                parent_id:
+                  type: string
+                  description: "Int64 as string"
+                name:
+                  type: string
+                  maxLength: 64
+                icon:
+                  type: string
+                  maxLength: 512
+                sort:
+                  type: integer
+                status:
+                  type: string
+                  enum: [enabled, disabled]
+      responses:
+        "200":
+          description: 更新成功
+    delete:
+      tags: [Admin商品]
+      summary: 删除分类（需权限 category.delete）
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "200":
+          description: 删除成功
+
+  /admin/products:
+    get:
+      tags: [Admin商品]
+      summary: 分页查询商品列表（需权限 product.view）
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: category_id
+          in: query
+          schema: { type: integer, format: int64 }
+        - name: status
+          in: query
+          schema: { type: string, enum: [draft, onsale, offsale] }
+        - name: keyword
+          in: query
+          schema: { type: string }
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: page_size
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+      responses:
+        "200":
+          description: 商品列表
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Response"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          list:
+                            type: array
+                            items:
+                              $ref: '#/components/schemas/ProductListItem'
+                          total:
+                            type: integer
+                          page:
+                            type: integer
+                          page_size:
+                            type: integer
+    post:
+      tags: [Admin商品]
+      summary: 创建商品（需权限 product.create）
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpsertProductRequest'
+      responses:
+        "200":
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Response"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/ProductDetail'
+
+  /admin/products/{id}:
+    get:
+      tags: [Admin商品]
+      summary: 获取商品详情（需权限 product.view）
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "200":
+          description: 商品详情
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Response"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/ProductDetail'
+    put:
+      tags: [Admin商品]
+      summary: 更新商品（需权限 product.edit）
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpsertProductRequest'
+      responses:
+        "200":
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Response"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/ProductDetail'
+    delete:
+      tags: [Admin商品]
+      summary: 删除商品（需权限 product.delete）
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "200":
+          description: 删除成功
+
+  /admin/products/{id}/copy:
+    post:
+      tags: [Admin商品]
+      summary: 复制商品（需权限 product.create）
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "200":
+          description: 复制成功
+
+  /admin/products/{id}/onsale:
+    post:
+      tags: [Admin商品]
+      summary: 商品上架（需权限 product.edit）
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "200":
+          description: 上架成功
+
+  /admin/products/{id}/offsale:
+    post:
+      tags: [Admin商品]
+      summary: 商品下架（需权限 product.edit）
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "200":
+          description: 下架成功
+
+  /admin/products/batch-status:
+    post:
+      tags: [Admin商品]
+      summary: 批量修改商品状态（需权限 product.edit）
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ids, status]
+              properties:
+                ids:
+                  type: array
+                  items: { type: integer, format: int64 }
+                status: { type: string }
+      responses:
+        "200":
+          description: 操作成功
+
+  /admin/skus/batch-price:
+    post:
+      tags: [Admin商品]
+      summary: 批量修改 SKU 价格（需权限 product.edit）
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: 修改成功
+
+  /admin/upload/image:
+    post:
+      tags: [Admin商品]
+      summary: 上传商品图片（需权限 product.create）
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        "200":
+          description: 上传成功，返回图片 URL
+
+  # ========== C 端购物车（Phase 3）==========
+  /c/cart:
+    get:
+      tags: [C端购物车]
+      summary: 查询购物车列表
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+      responses:
+        "200":
+          description: 购物车列表
+    post:
+      tags: [C端购物车]
+      summary: 加入购物车（60次/分钟/用户）
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [sku_id, qty]
+              properties:
+                sku_id: { type: integer, format: int64 }
+                qty: { type: integer, minimum: 1 }
+      responses:
+        "200":
+          description: 添加成功
+
+  /c/cart/{id}:
+    put:
+      tags: [C端购物车]
+      summary: 更新购物车条目数量
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [qty]
+              properties:
+                qty: { type: integer, minimum: 1 }
+      responses:
+        "200":
+          description: 更新成功
+    delete:
+      tags: [C端购物车]
+      summary: 删除购物车条目
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "200":
+          description: 删除成功
+
+  /c/cart/batch-delete:
+    post:
+      tags: [C端购物车]
+      summary: 批量删除购物车条目
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ids]
+              properties:
+                ids:
+                  type: array
+                  items: { type: integer, format: int64 }
+      responses:
+        "200":
+          description: 删除成功
+
+  /c/cart/clean-invalid:
+    post:
+      tags: [C端购物车]
+      summary: 清理下架/无货商品
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+      responses:
+        "200":
+          description: 清理成功
+
+  /c/cart/count:
+    get:
+      tags: [C端购物车]
+      summary: 查询购物车商品数量
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+      responses:
+        "200":
+          description: 购物车数量
+
+  /c/cart/precheck:
+    post:
+      tags: [C端购物车]
+      summary: 购物车下单前预检（库存/价格）
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [cart_ids]
+              properties:
+                cart_ids:
+                  type: array
+                  items: { type: integer, format: int64 }
+      responses:
+        "200":
+          description: 预检结果
+
+  # ========== C 端订单（Phase 3）==========
+  /c/orders:
+    post:
+      tags: [C端订单]
+      summary: 创建订单（10次/分钟/用户，幂等）
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [cart_ids, address_id]
+              properties:
+                cart_ids:
+                  type: array
+                  items: { type: integer, format: int64 }
+                address_id: { type: integer, format: int64 }
+                remark: { type: string }
+      responses:
+        "200":
+          description: 订单创建成功
+    get:
+      tags: [C端订单]
+      summary: 查询订单列表
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string }
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+      responses:
+        "200":
+          description: 订单列表
+
+  /c/orders/{id}:
+    get:
+      tags: [C端订单]
+      summary: 查询订单详情
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "200":
+          description: 订单详情
+
+  /c/orders/{id}/cancel:
+    post:
+      tags: [C端订单]
+      summary: 取消订单
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "200":
+          description: 取消成功
+
+  /c/orders/{id}/cancel-request/withdraw:
+    post:
+      tags: [C端订单]
+      summary: 撤回取消申请
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "200":
+          description: 撤回成功
+
+  /c/orders/{id}/confirm:
+    post:
+      tags: [C端订单]
+      summary: 确认收货
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "200":
+          description: 确认成功
+
+  /c/orders/{id}/buy-again:
+    post:
+      tags: [C端订单]
+      summary: 再次购买（将订单商品加入购物车）
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "200":
+          description: 已加入购物车
+
+  # ========== C 端支付（Phase 4）==========
+  /c/pay/wxpay/prepay:
+    post:
+      tags: [C端支付]
+      summary: 微信支付预下单（敏感接口）
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [order_id]
+              properties:
+                order_id: { type: integer, format: int64 }
+      responses:
+        "200":
+          description: 预支付参数
+
+  /c/orders/{id}/pay-status:
+    get:
+      tags: [C端支付]
+      summary: 查询支付状态
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "200":
+          description: 支付状态
+
+  # ========== C 端物流（Phase 4）==========
+  /c/orders/{id}/tracks:
+    get:
+      tags: [C端物流]
+      summary: 查询订单物流轨迹
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "200":
+          description: 物流轨迹列表
+
+  # ========== 回调通知（Phase 4）==========
+  /notify/wxpay:
+    post:
+      tags: [回调通知]
+      summary: 微信支付回调
+      responses:
+        "200":
+          description: 处理成功
+
+  /notify/wxpay/refund:
+    post:
+      tags: [回调通知]
+      summary: 微信退款回调
+      responses:
+        "200":
+          description: 处理成功
+
+  /notify/express:
+    post:
+      tags: [回调通知]
+      summary: 快递状态推送回调
+      responses:
+        "200":
+          description: 处理成功
+
+  # ========== Admin 订单（Phase 3）==========
+  /admin/orders:
+    get:
+      tags: [Admin订单]
+      summary: 分页查询订单列表（需权限 order.view）
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: status
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: 订单列表
+
+  /admin/orders/{id}:
+    get:
+      tags: [Admin订单]
+      summary: 查询订单详情（需权限 order.view）
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "200":
+          description: 订单详情
+
+  /admin/orders/export:
+    post:
+      tags: [Admin订单]
+      summary: 导出订单（需权限 order.export）
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: 导出任务已创建
+
+  /admin/orders/{id}/cancel:
+    post:
+      tags: [Admin订单]
+      summary: 取消订单（需权限 order.cancel）
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "200":
+          description: 取消成功
+
+  /admin/orders/{id}/remarks:
+    post:
+      tags: [Admin订单]
+      summary: 添加订单备注（需权限 order.remark）
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [content]
+              properties:
+                content: { type: string }
+      responses:
+        "200":
+          description: 备注添加成功
+    get:
+      tags: [Admin订单]
+      summary: 查询订单备注列表（需权限 order.view）
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "200":
+          description: 备注列表
+
+  /admin/freight-templates:
+    get:
+      tags: [Admin订单]
+      summary: 查询运费模板列表（需权限 system.setting.view）
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: 运费模板列表
+    post:
+      tags: [Admin订单]
+      summary: 创建运费模板（需权限 system.setting.edit）
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string }
+      responses:
+        "200":
+          description: 创建成功
+
+  /admin/freight-templates/{id}:
+    put:
+      tags: [Admin订单]
+      summary: 更新运费模板（需权限 system.setting.edit）
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "200":
+          description: 更新成功
+
+  # ========== Admin 售后（Phase 3）==========
+  /admin/aftersales:
+    get:
+      tags: [Admin售后]
+      summary: 查询售后列表（需权限 aftersale.view）
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: 售后列表
+
+  /admin/aftersales/{order_id}/approve:
+    post:
+      tags: [Admin售后]
+      summary: 审批通过取消申请（需权限 aftersale.process，敏感接口）
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: order_id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "200":
+          description: 审批成功
+
+  /admin/aftersales/{order_id}/reject:
+    post:
+      tags: [Admin售后]
+      summary: 拒绝取消申请（需权限 aftersale.process）
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: order_id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "200":
+          description: 拒绝成功
+
+  # ========== Admin 支付（Phase 4）==========
+  /admin/orders/{id}/refund:
+    post:
+      tags: [Admin支付]
+      summary: 发起退款（需权限 refund.create，敏感接口）
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [amount_cents, reason]
+              properties:
+                amount_cents: { type: integer, format: int64 }
+                reason: { type: string }
+      responses:
+        "200":
+          description: 退款申请已提交
+
+  /admin/payments:
+    get:
+      tags: [Admin支付]
+      summary: 查询支付记录（需权限 payment.view）
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: 支付记录列表
+
+  /admin/refunds:
+    get:
+      tags: [Admin支付]
+      summary: 查询退款记录（需权限 payment.view）
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: 退款记录列表
+
+  /admin/reconciliation:
+    get:
+      tags: [Admin支付]
+      summary: 查询对账差异（需权限 reconcile.view）
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: 对账差异列表
+
+  /admin/reconciliation/{id}/resolve:
+    post:
+      tags: [Admin支付]
+      summary: 处理对账差异（需权限 reconcile.view）
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "200":
+          description: 处理成功
+
+  # ========== Admin 发货（Phase 4）==========
+  /admin/sender-addresses:
+    get:
+      tags: [Admin发货]
+      summary: 查询发货地址（需权限 system.setting.view）
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: 发货地址列表
+    post:
+      tags: [Admin发货]
+      summary: 创建发货地址（需权限 system.setting.edit）
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, phone, detail]
+              properties:
+                name: { type: string }
+                phone: { type: string }
+                province_code: { type: string }
+                province: { type: string }
+                city_code: { type: string }
+                city: { type: string }
+                district_code: { type: string }
+                district: { type: string }
+                street_code: { type: string }
+                street: { type: string }
+                detail: { type: string }
+      responses:
+        "200":
+          description: 创建成功
+
+  /admin/sender-addresses/{id}:
+    put:
+      tags: [Admin发货]
+      summary: 更新发货地址（需权限 system.setting.edit）
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                phone: { type: string }
+                province_code: { type: string }
+                province: { type: string }
+                city_code: { type: string }
+                city: { type: string }
+                district_code: { type: string }
+                district: { type: string }
+                street_code: { type: string }
+                street: { type: string }
+                detail: { type: string }
+      responses:
+        "200":
+          description: 更新成功
+    delete:
+      tags: [Admin发货]
+      summary: 删除发货地址（需权限 system.setting.edit）
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "200":
+          description: 删除成功
+
+  /admin/sender-addresses/{id}/default:
+    post:
+      tags: [Admin发货]
+      summary: 设置默认发货地址（需权限 system.setting.edit）
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "200":
+          description: 设置成功
+
+  /admin/carriers:
+    get:
+      tags: [Admin发货]
+      summary: 查询快递商列表（需权限 system.setting.view）
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: 快递商列表
+
+  /admin/carriers/{code}:
+    put:
+      tags: [Admin发货]
+      summary: 更新快递商配置（需权限 system.setting.edit）
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: 更新成功
+
+  /admin/orders/{id}/ship:
+    post:
+      tags: [Admin发货]
+      summary: 单订单发货（需权限 shipment.ship）
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [carrier_code, tracking_no]
+              properties:
+                carrier_code: { type: string }
+                tracking_no: { type: string }
+      responses:
+        "200":
+          description: 发货成功
+
+  /admin/orders/batch-ship:
+    post:
+      tags: [Admin发货]
+      summary: 批量发货（需权限 shipment.batch_ship）
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: 批量发货任务已创建
+
+  /admin/orders/batch-ship/{task_id}:
+    get:
+      tags: [Admin发货]
+      summary: 查询批量发货任务状态（需权限 shipment.ship）
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: task_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: 任务状态
+
+  /admin/orders/batch-ship/{task_id}/pdf:
+    get:
+      tags: [Admin发货]
+      summary: 下载批量发货面单 PDF（需权限 shipment.ship）
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: task_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: PDF 文件
+
+  /admin/shipments:
+    get:
+      tags: [Admin发货]
+      summary: 查询发货记录（需权限 shipment.view）
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: 发货记录列表
+
+  /admin/shipments/{id}:
+    put:
+      tags: [Admin发货]
+      summary: 更新发货记录（需权限 shipment.update）
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "200":
+          description: 更新成功
+
+  # ========== Admin 库存（Phase 4）==========
+  /admin/skus/{id}/adjust:
+    post:
+      tags: [Admin库存]
+      summary: 调整 SKU 库存（需权限 inventory.adjust）
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [delta, reason]
+              properties:
+                delta: { type: integer }
+                reason: { type: string }
+      responses:
+        "200":
+          description: 调整成功
+
+  /admin/inventory/logs:
+    get:
+      tags: [Admin库存]
+      summary: 查询库存操作日志（需权限 inventory.view）
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: 库存日志列表
+
+  /admin/inventory/alerts:
+    get:
+      tags: [Admin库存]
+      summary: 查询库存预警列表（需权限 inventory.view）
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: 预警列表
+
+  /admin/inventory/alerts/{id}/read:
+    post:
+      tags: [Admin库存]
+      summary: 标记预警已读（需权限 inventory.view）
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "200":
+          description: 已标记
+
+  # ========== Admin 统计（Phase 5）==========
+  /admin/stats/overview:
+    get:
+      tags: [Admin统计]
+      summary: 运营概览（需权限 stats.view）
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: 运营概览数据
+
+  /admin/stats/sales-trend:
+    get:
+      tags: [Admin统计]
+      summary: 销售趋势（需权限 stats.view）
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: start_date
+          in: query
+          schema: { type: string, format: date }
+        - name: end_date
+          in: query
+          schema: { type: string, format: date }
+      responses:
+        "200":
+          description: 销售趋势数据
+
+  /admin/stats/category-pie:
+    get:
+      tags: [Admin统计]
+      summary: 分类销售占比（需权限 stats.view）
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: 分类占比数据
+
+  /admin/stats/products:
+    get:
+      tags: [Admin统计]
+      summary: 商品销售排行（需权限 stats.view）
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: 商品排行数据
+
+  /admin/stats/users:
+    get:
+      tags: [Admin统计]
+      summary: 用户统计（需权限 stats.view）
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: 用户统计数据
+
+  /admin/stats/channels:
+    get:
+      tags: [Admin统计]
+      summary: 渠道统计（需权限 stats.view）
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: 渠道统计数据
+
+  /admin/stats/products/export:
+    get:
+      tags: [Admin统计]
+      summary: 导出商品统计（需权限 stats.export）
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: 导出文件
+
+  # ========== Admin 通知（Phase 5）==========
+  /admin/notifications:
+    get:
+      tags: [Admin通知]
+      summary: 查询通知列表（需权限 notif.view）
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: 通知列表
+
+  /admin/notification-templates:
+    get:
+      tags: [Admin通知]
+      summary: 查询通知模板列表（需权限 notif.config）
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: 模板列表
+
+  /admin/notification-templates/{code}:
+    put:
+      tags: [Admin通知]
+      summary: 更新通知模板（需权限 notif.config）
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                content: { type: string }
+                enabled: { type: boolean }
+      responses:
+        "200":
+          description: 更新成功
+
+  /admin/notification-templates/{code}/test:
+    post:
+      tags: [Admin通知]
+      summary: 测试发送通知（需权限 notif.config）
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: code
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                target: { type: string, description: 测试接收目标（手机号/openid） }
+      responses:
+        "200":
+          description: 发送成功
+
+
+  # ========== Banner ==========
+  /c/banners:
+    get:
+      tags: [C端Banner]
+      summary: 获取首页 Banner 列表（仅返回已启用，按排序升序）
+      responses:
+        "200":
+          description: Banner 列表
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/BaseResp"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/Banner"
+
+  /admin/banners:
+    get:
+      tags: [Admin内容]
+      summary: 获取所有 Banner（含未启用，按排序升序，需权限 banner.view）
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: Banner 列表
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/BaseResp"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/Banner"
+    post:
+      tags: [Admin内容]
+      summary: 创建 Banner（需权限 banner.edit）
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BannerForm"
+      responses:
+        "200":
+          description: 创建成功，返回新 Banner
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/BaseResp"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/Banner"
+
+  /admin/banners/sort:
+    patch:
+      tags: [Admin内容]
+      summary: 批量更新排序（需权限 banner.edit）
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                type: object
+                required: [id, sort]
+                properties:
+                  id: { type: integer, format: int64 }
+                  sort: { type: integer }
+      responses:
+        "200":
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BaseResp"
+
+  /admin/banners/{id}:
+    put:
+      tags: [Admin内容]
+      summary: 更新 Banner（需权限 banner.edit）
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BannerForm"
+      responses:
+        "200":
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BaseResp"
+    delete:
+      tags: [Admin内容]
+      summary: 删除 Banner（需权限 banner.edit）
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "200":
+          description: 删除成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BaseResp"
+
+  /admin/banners/{id}/toggle:
+    patch:
+      tags: [Admin内容]
+      summary: 切换 Banner 启用状态（需权限 banner.edit）
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "200":
+          description: 切换成功，返回当前 is_active 值
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/BaseResp"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          is_active: { type: boolean }
+
+
+  # ========== NavIcon（金刚区快捷导航）==========
+  /c/nav-icons:
+    get:
+      tags: [C端NavIcon]
+      summary: 获取激活金刚区图标列表（按排序升序）
+      responses:
+        "200":
+          description: NavIcon 列表
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/BaseResp"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/NavIcon"
+
+  /admin/nav-icons:
+    get:
+      tags: [Admin内容]
+      summary: 获取所有金刚区图标（含未启用，按排序升序，需权限 nav_icon.view）
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: NavIcon 列表
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/BaseResp"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/NavIcon"
+    post:
+      tags: [Admin内容]
+      summary: 创建金刚区图标（需权限 nav_icon.edit）
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NavIconForm"
+      responses:
+        "200":
+          description: 创建成功，返回新 NavIcon
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/BaseResp"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/NavIcon"
+
+  /admin/nav-icons/sort:
+    patch:
+      tags: [Admin内容]
+      summary: 批量更新金刚区图标排序（需权限 nav_icon.edit）
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                type: object
+                required: [id, sort]
+                properties:
+                  id: { type: string }
+                  sort: { type: integer }
+      responses:
+        "200":
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BaseResp"
+
+  /admin/nav-icons/{id}:
+    put:
+      tags: [Admin内容]
+      summary: 更新金刚区图标（需权限 nav_icon.edit）
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NavIconForm"
+      responses:
+        "200":
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BaseResp"
+    delete:
+      tags: [Admin内容]
+      summary: 删除金刚区图标（需权限 nav_icon.edit）
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: 删除成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BaseResp"
+
+  /admin/nav-icons/{id}/toggle:
+    patch:
+      tags: [Admin内容]
+      summary: 切换金刚区图标启用状态（需权限 nav_icon.edit）
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: 切换成功，返回当前 is_active 值
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/BaseResp"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          is_active: { type: boolean }
+
+  # ========== 监控 ==========
+  /metrics:
+    get:
+      tags: [开放接口]
+      summary: Prometheus 指标端点
+      responses:
+        "200":
+          description: Prometheus 格式指标文本

@@ -1,0 +1,35 @@
+.auth-page {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  justify-content: center;
+
+  &__title {
+    color: var(--ds-color-primary-deep);
+    font-family: var(--ds-font-display);
+    font-size: 30px;
+    line-height: 1.1;
+  }
+
+  &__description {
+    color: var(--ds-color-text-secondary);
+    font-size: 14px;
+    line-height: 1.7;
+  }
+
+  &__status {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    padding: 12px 14px;
+    border: 1px solid var(--ds-color-line);
+    border-radius: 12px;
+    background: var(--ds-color-bg-card);
+    box-shadow: var(--ds-shadow);
+  }
+
+  &__status-text {
+    color: var(--ds-color-text-primary);
+    font-size: 13px;
+  }
+}

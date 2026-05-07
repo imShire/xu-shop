@@ -1,0 +1,85 @@
+/**
+ * xu-shop Design System — CSS Custom Properties (Design Tokens)
+ * 色系：京东红 (JD Red)  主色 #e93323
+ */
+
+:root {
+  // ── 品牌主色（JD Red）────────────────────────────────────
+  --ds-color-primary:       #e93323;   // 主按钮、选中态、链接、激活 Tab
+  --ds-color-primary-deep:  #cc1010;   // 深色变体：标题、按下态
+  --ds-color-primary-light: #fff0ef;   // 浅色背景：选中背景、hover 态
+  --ds-color-primary-muted: #f5a39a;   // 次级：辅助说明、placeholder
+
+  // ── 强调色（Orange）───────────────────────────────────────
+  --ds-color-accent:        #ff6600;   // 促销标签、高亮价格
+  --ds-color-accent-deep:   #e55c00;
+  --ds-color-accent-light:  rgba(255, 102, 0, 0.10);
+
+  // ── 背景色 ────────────────────────────────────────────────
+  --ds-color-bg-page:       #f5f5f5;   // 页面底色（JD 灰）
+  --ds-color-bg-card:       #ffffff;   // 卡片背景（纯白）
+  --ds-color-bg-mist:       #f7f7f7;   // 内嵌区块背景
+  --ds-color-bg-input:      #f5f5f5;   // 输入框背景
+  --ds-color-bg-overlay:    rgba(0, 0, 0, 0.5); // 遮罩层
+
+  // ── 文字色 ───────────────────────────────────────────────
+  --ds-color-text-primary:   #333333;  // 主文本：标题、正文
+  --ds-color-text-secondary: #666666;  // 次要文本：辅助信息
+  --ds-color-text-disabled:  #cccccc;  // 禁用态
+  --ds-color-text-inverse:   #ffffff;  // 反色文本（深色背景上）
+  --ds-color-text-price:     #e93323;  // 价格红（JD 风格：价格与主色同）
+  --ds-color-text-market:    #999999;  // 市场价（划线价）
+
+  // ── 边框 / 分割线 ────────────────────────────────────────
+  --ds-color-line:           #e5e5e5;  // 标准边框
+  --ds-color-line-strong:    #cccccc;  // 强调边框
+  --ds-color-line-light:     #f0f0f0;  // 极淡：列表分割线
+
+  // ── 状态色 ────────────────────────────────────────────────
+  --ds-color-success:        #52c41a;
+  --ds-color-success-light:  rgba(82, 196, 26, 0.10);
+  --ds-color-warning:        #faad14;
+  --ds-color-warning-light:  rgba(250, 173, 20, 0.10);
+  --ds-color-error:          #e93323;  // 错误（复用主色）
+  --ds-color-error-light:    rgba(233, 51, 35, 0.08);
+  --ds-color-info:           #1677ff;
+  --ds-color-info-light:     rgba(22, 119, 255, 0.10);
+
+  // ── 阴影 ─────────────────────────────────────────────────
+  --ds-shadow-xs:     0 1px 4px rgba(0, 0, 0, 0.06);
+  --ds-shadow-sm:     0 2px 8px rgba(0, 0, 0, 0.08);
+  --ds-shadow:        0 2px 12px rgba(0, 0, 0, 0.08);   // 标准卡片
+  --ds-shadow-md:     0 4px 20px rgba(0, 0, 0, 0.10);   // 浮层
+  --ds-shadow-lg:     0 8px 28px rgba(0, 0, 0, 0.12);   // 大卡片
+  --ds-shadow-xl:     0 12px 36px rgba(0, 0, 0, 0.14);  // Drawer/Modal
+  --ds-shadow-inner:  inset 0 1px 0 rgba(255, 255, 255, 0.8);
+
+  // ── 字体 ─────────────────────────────────────────────────
+  --ds-font-display: 'PingFang SC', 'Hiragino Sans GB', 'Helvetica Neue', sans-serif;
+  --ds-font-text:    'PingFang SC', 'Hiragino Sans GB', 'Helvetica Neue', sans-serif;
+
+  // ── 动画 ─────────────────────────────────────────────────
+  --ds-duration-fast: 120ms;
+  --ds-duration:      200ms;
+  --ds-duration-slow: 350ms;
+  --ds-ease:          cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  --ds-ease-bounce:   cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  // ── 向后兼容别名 ──────────────────────────────────────────
+  --color-forest:      var(--ds-color-primary);
+  --color-forest-deep: var(--ds-color-primary-deep);
+  --color-spark:       var(--ds-color-accent);
+  --color-paper:       var(--ds-color-bg-card);
+  --color-mist:        var(--ds-color-bg-mist);
+  --color-ink:         var(--ds-color-text-primary);
+  --color-muted:       var(--ds-color-text-secondary);
+  --color-line:        var(--ds-color-line);
+  --color-glow:        var(--ds-color-accent-light);
+  --shadow-soft:       var(--ds-shadow-xl);
+  --shadow-card:       var(--ds-shadow);
+  --radius-xl:         32px;
+  --radius-lg:         24px;
+  --radius-md:         18px;
+  --font-display:      var(--ds-font-display);
+  --font-text:         var(--ds-font-text);
+}

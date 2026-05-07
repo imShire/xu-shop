@@ -1,0 +1,34 @@
+:root {
+  // 主色 - 琥珀橙
+  --el-color-primary: #f59e0b;
+  --el-color-primary-dark-2: #d97706;
+  --el-color-primary-light-3: #fbbf24;
+  --el-color-primary-light-5: #fcd34d;
+  --el-color-primary-light-7: #fde68a;
+  --el-color-primary-light-8: #fef3c7;
+  --el-color-primary-light-9: #fffbeb;
+
+  // 侧边栏
+  --sidebar-bg: #1c1c27;
+  --sidebar-hover: #2a2a3e;
+  --sidebar-active: #f59e0b;
+  --sidebar-text: #a0a0b8;
+  --sidebar-text-active: #ffffff;
+  --sidebar-width: 220px;
+  --sidebar-collapsed-width: 64px;
+
+  // 顶栏
+  --header-bg: #ffffff;
+  --header-height: 56px;
+  --header-border: #eaecef;
+
+  // 内容区
+  --content-bg: #f5f7fa;
+  --card-bg: #ffffff;
+  --border-color: #e4e7ed;
+
+  // 文字
+  --text-primary: #1a1a2e;
+  --text-regular: #606266;
+  --text-secondary: #909399;
+}

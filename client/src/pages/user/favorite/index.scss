@@ -1,0 +1,11 @@
+.favorite-page {
+  min-height: 100vh;
+  padding: 28px 24px 72px;
+  background: var(--ds-color-bg-page);
+
+  &__list {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+}

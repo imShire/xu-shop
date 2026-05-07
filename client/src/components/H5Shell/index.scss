@@ -1,0 +1,24 @@
+.h5-shell {
+  min-height: 100vh;
+}
+
+.h5-shell__body {
+  min-height: 100vh;
+}
+
+.h5-shell__body--nav {
+  padding-top: 12px;
+}
+
+.h5-shell__body--tabbar {
+  padding-bottom: 120px;
+}
+
+.h5-shell__nav-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  color: var(--ds-color-text-primary);
+}

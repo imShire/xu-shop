@@ -1,0 +1,251 @@
+.address-list-page {
+  position: relative;
+  min-height: 100vh;
+  padding: 28px 28px 320px;
+  background: var(--ds-color-bg-page);
+
+  &__list,
+  &__skeletons {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  &__item,
+  &__skeleton-card {
+    border: 2px solid var(--ds-color-line);
+    border-radius: 28px;
+    background: var(--ds-color-bg-card);
+    box-shadow: var(--ds-shadow);
+  }
+
+  &__item--default {
+    border-color: var(--ds-color-primary);
+    box-shadow: var(--ds-shadow-lg);
+  }
+
+  &__skeleton-card {
+    padding: 32px;
+  }
+
+  &__card-head {
+    display: flex;
+    gap: 24px;
+    align-items: flex-start;
+    padding: 28px;
+  }
+
+  &__marker {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    width: 72px;
+    height: 72px;
+    margin-top: 4px;
+    border-radius: 50%;
+    background: var(--ds-color-primary-light);
+    color: var(--ds-color-primary);
+  }
+
+  &__card-main {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-width: 0;
+    gap: 16px;
+  }
+
+  &__identity {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  &__name {
+    color: var(--ds-color-text-primary);
+    font-size: 30px;
+    font-weight: 600;
+    line-height: 1.2;
+  }
+
+  &__phone {
+    color: var(--ds-color-text-secondary);
+    font-size: 28px;
+    line-height: 1.2;
+  }
+
+  &__badge {
+    padding: 6px 16px;
+    border-radius: 19998px;
+    background: var(--ds-color-primary-light);
+    color: var(--ds-color-primary);
+    font-size: 22px;
+    font-weight: 600;
+    line-height: 1;
+  }
+
+  &__detail-row {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+  }
+
+  &__detail {
+    color: var(--ds-color-text-secondary);
+    font-size: 26px;
+    line-height: 1.6;
+    word-break: break-all;
+  }
+
+  &__arrow {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    align-self: center;
+  }
+
+  &__toolbar {
+    display: flex;
+    align-items: center;
+    min-height: 96px;
+    border-top: 2px solid var(--ds-color-line-light);
+  }
+
+  &__action {
+    display: flex;
+    flex: 1;
+    gap: 12px;
+    align-items: center;
+    justify-content: center;
+    min-height: 96px;
+    color: var(--ds-color-text-secondary);
+    font-size: 26px;
+    line-height: 1;
+  }
+
+  &__action--active {
+    color: var(--ds-color-primary);
+  }
+
+  &__action--danger {
+    color: var(--ds-color-error);
+  }
+
+  &__action-label {
+    font-size: 26px;
+    line-height: 1;
+  }
+
+  &__divider {
+    width: 2px;
+    height: 40px;
+    background: var(--ds-color-line-light);
+  }
+
+  &__radio {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border: 3px solid var(--ds-color-line);
+    border-radius: 50%;
+    background: var(--ds-color-bg-card);
+  }
+
+  &__radio--checked {
+    border-color: var(--ds-color-primary);
+  }
+
+  &__radio-dot {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--ds-color-primary);
+  }
+
+  &__empty {
+    margin-top: 160px;
+  }
+
+  &__fixed-bar {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 12;
+    padding: 28px 28px 0;
+    background: linear-gradient(180deg, rgba(245, 245, 245, 0) 0%, rgba(255, 255, 255, 0.96) 28%);
+  }
+
+  &__add-button {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    justify-content: center;
+    min-height: 104px;
+    border-radius: 19998px;
+    background: var(--ds-color-primary);
+    box-shadow: 0 16px 48px rgba(233, 51, 35, 0.26);
+    color: var(--ds-color-text-inverse);
+    font-size: 30px;
+    font-weight: 600;
+  }
+
+  &__add-icon {
+    font-size: 40px;
+    font-weight: 400;
+    line-height: 1;
+    color: var(--ds-color-text-inverse);
+  }
+
+  &__add-label {
+    font-size: 30px;
+    font-weight: 600;
+    color: var(--ds-color-text-inverse);
+  }
+
+  &__detail-pin {
+    flex-shrink: 0;
+    width: 12px;
+    height: 12px;
+    margin-top: 12px;
+    border-radius: 50%;
+    background: var(--ds-color-primary-muted);
+  }
+
+  &__action-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+
+    &--edit {
+      background-image: none;
+    }
+  }
+
+  &__glow {
+    position: fixed;
+    left: 0;
+    right: 0;
+    height: 160px;
+    z-index: 1;
+    pointer-events: none;
+
+    &--top {
+      top: 0;
+      background: linear-gradient(180deg, rgba(245, 245, 245, 0.95) 0%, transparent 100%);
+    }
+
+    &--bottom {
+      bottom: 0;
+      background: linear-gradient(0deg, rgba(245, 245, 245, 0.95) 0%, transparent 100%);
+    }
+  }
+}

@@ -1,0 +1,29 @@
+.address-edit-page {
+  padding: 14px 14px 120px;
+
+  &__form {
+    border: 1px solid var(--ds-color-line);
+    border-radius: 14px;
+    overflow: hidden;
+    background: var(--ds-color-bg-card);
+    box-shadow: var(--ds-shadow);
+  }
+
+  &__group {
+    border-radius: 14px;
+    overflow: hidden;
+    border: 1px solid var(--ds-color-line);
+    background: var(--ds-color-bg-card);
+    box-shadow: var(--ds-shadow);
+  }
+
+  &__footer {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 15;
+    padding: 10px 14px 0;
+    background: linear-gradient(180deg, transparent, rgba(255, 255, 255, 0.98) 28%);
+  }
+}

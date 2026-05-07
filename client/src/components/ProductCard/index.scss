@@ -1,0 +1,143 @@
+.product-card {
+  cursor: pointer;
+
+  // ─── Vertical Mode (竖版，一行2个) ────────────────────────
+  &--vertical {
+    display: flex;
+    flex-direction: column;
+    background: var(--ds-color-bg-card);
+    border: 2px solid var(--ds-color-line);
+    border-radius: 28px;
+    overflow: hidden;
+    box-shadow: var(--ds-shadow);
+    padding-bottom: 24px;
+  }
+
+  &__v-image {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    display: block;
+  }
+
+  &__v-body {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 20px 20px 0;
+  }
+
+  // ─── Horizontal Mode (横版，一行1个) ──────────────────────
+  &--horizontal {
+    display: flex;
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 24px;
+    padding: 24px 32px;
+    background: var(--ds-color-bg-card);
+    border-bottom: 2px solid var(--ds-color-line-light);
+  }
+
+  &__h-image {
+    flex-shrink: 0;
+    width: 176px;
+    height: 176px;
+    border-radius: 20px;
+    overflow: hidden;
+    background: var(--ds-color-bg-mist);
+  }
+
+  &__h-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-width: 0;
+  }
+
+  // ─── Shared ───────────────────────────────────────────────
+  &__title-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  &__title {
+    flex: 1;
+    min-width: 0;
+    color: var(--ds-color-text-primary);
+    font-size: 28px;
+    font-weight: 600;
+    line-height: 1.4;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__title-right {
+    flex-shrink: 0;
+  }
+
+  &__tags {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 8px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__tag {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 12px;
+    border-radius: 8px;
+    background: var(--ds-color-primary-light, rgba(255, 77, 0, 0.08));
+    color: var(--ds-color-primary);
+    font-size: 20px;
+    line-height: 1.4;
+  }
+
+  &__price-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  &__cart {
+    flex-shrink: 0;
+  }
+
+  &__add-btn {
+    flex-shrink: 0;
+  }
+
+  // 红底白图标圆形购物车按钮（默认 cartButton 样式，首页/列表页共用）
+  &__cart-round {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: var(--ds-color-primary);
+    color: var(--ds-color-text-inverse);
+    // box-shadow: 0 8px 24px rgba(233, 51, 35, 0.28);
+
+    &:active { opacity: 0.85; transform: scale(0.95); }
+
+    &--loading {
+      opacity: 0.6;
+      pointer-events: none;
+    }
+  }
+
+  &__cart-round-text {
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--ds-color-text-inverse);
+    line-height: 1;
+  }
+}
+

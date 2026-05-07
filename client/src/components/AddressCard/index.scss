@@ -1,0 +1,35 @@
+.address-card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 32px 40px;
+  border: 2px solid var(--ds-color-line);
+  border-radius: 28px;
+  background: var(--ds-color-bg-card);
+  box-shadow: var(--ds-shadow);
+
+  &__top {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    flex-wrap: wrap;
+  }
+
+  &__name {
+    font-size: 30px;
+    font-weight: 600;
+    color: var(--ds-color-text-primary);
+  }
+
+  &__phone {
+    flex: 1;
+    font-size: 28px;
+    color: var(--ds-color-text-secondary);
+  }
+
+  &__detail {
+    font-size: 26px;
+    color: var(--ds-color-text-primary);
+    line-height: 1.55;
+  }
+}

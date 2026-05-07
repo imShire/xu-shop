@@ -1,0 +1,19 @@
+.price-text {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+
+  &__main {
+    line-height: 1;
+    color: var(--ds-color-text-price);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__market {
+    color: var(--ds-color-text-market);
+    font-size: 22px;
+    text-decoration: line-through;
+    font-variant-numeric: tabular-nums;
+  }
+}
