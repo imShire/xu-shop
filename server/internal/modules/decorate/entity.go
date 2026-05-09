@@ -9,7 +9,7 @@ import (
 )
 
 // PageModule 页面组件配置（JSON 结构）。
-// 支持 type: banner / product_list / category_entry / rich_text
+// 支持 type: product_list / category_entry / rich_text
 type PageModule struct {
 	Type string          `json:"type"`
 	Data json.RawMessage `json:"data"`

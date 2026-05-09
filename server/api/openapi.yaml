@@ -124,6 +124,44 @@ components:
         sort: { type: integer }
         is_active: { type: boolean }
 
+    PageModule:
+      type: object
+      required: [type, data]
+      properties:
+        type:
+          type: string
+          enum: [product_list, category_entry, rich_text]
+          description: 模块类型（选项 B：banner/nav_icon 由独立接口管理）
+        data:
+          type: object
+          description: 模块配置数据，结构因 type 而异
+
+    PageConfigResp:
+      type: object
+      properties:
+        id:          { type: string, description: "雪花 ID（字符串）" }
+        page_key:    { type: string, example: home }
+        version:     { type: integer }
+        modules:
+          type: array
+          items:
+            $ref: "#/components/schemas/PageModule"
+        is_active:   { type: boolean }
+        created_at:  { type: string, format: date-time }
+
+    SavePageConfigReq:
+      type: object
+      required: [page_key, modules]
+      properties:
+        page_key:
+          type: string
+          maxLength: 32
+          example: home
+        modules:
+          type: array
+          items:
+            $ref: "#/components/schemas/PageModule"
+
     CategoryResp:
       type: object
       properties:
@@ -3006,6 +3044,104 @@ paths:
                         type: object
                         properties:
                           is_active: { type: boolean }
+
+  # ========== 首页装修（page_config）==========
+  /c/page-config:
+    get:
+      tags: [C端页面装修]
+      summary: 获取激活的页面装修配置（无需认证）
+      parameters:
+        - name: page_key
+          in: query
+          required: false
+          schema: { type: string, default: home, maxLength: 32 }
+      responses:
+        "200":
+          description: 激活的页面配置（无激活版本时返回空 modules）
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/BaseResp"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/PageConfigResp"
+
+  /admin/decorate/versions:
+    get:
+      tags: [Admin首页装修]
+      summary: 获取首页装修历史版本列表（需权限 decorate.view）
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: page_key
+          in: query
+          required: false
+          schema: { type: string, default: home }
+      responses:
+        "200":
+          description: 历史版本列表（最多 20 条，按版本降序）
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/BaseResp"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/PageConfigResp"
+
+  /admin/decorate/save:
+    post:
+      tags: [Admin首页装修]
+      summary: 保存新版本装修配置（不自动激活，需权限 decorate.edit）
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SavePageConfigReq"
+      responses:
+        "200":
+          description: 新版本信息
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/BaseResp"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/PageConfigResp"
+
+  /admin/decorate/activate/{id}:
+    post:
+      tags: [Admin首页装修]
+      summary: 激活指定版本（需权限 decorate.edit）
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+          description: 版本 ID（字符串雪花 ID）
+        - name: page_key
+          in: query
+          required: false
+          schema: { type: string, default: home }
+      responses:
+        "200":
+          description: 激活成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BaseResp"
 
   # ========== 监控 ==========
   /metrics:

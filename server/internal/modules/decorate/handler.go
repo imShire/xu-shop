@@ -18,12 +18,16 @@ func NewHandler(svc *Service) *Handler { return &Handler{svc: svc} }
 // GetActivePage C 端获取激活页面配置。
 func (h *Handler) GetActivePage(c *gin.Context) {
 	pageKey := c.DefaultQuery("page_key", "home")
+	if len(pageKey) > 32 {
+		srv.Fail(c, errs.ErrParam.WithMsg("page_key 超出长度限制"))
+		return
+	}
 	cfg, err := h.svc.GetActivePage(c.Request.Context(), pageKey)
 	if err != nil {
 		srv.Fail(c, errs.ErrInternal)
 		return
 	}
-	srv.OK(c, cfg)
+	srv.OK(c, newPageConfigResp(cfg))
 }
 
 // AdminListVersions Admin 获取历史版本列表。
@@ -34,7 +38,7 @@ func (h *Handler) AdminListVersions(c *gin.Context) {
 		srv.Fail(c, errs.ErrInternal)
 		return
 	}
-	srv.OK(c, list)
+	srv.OK(c, newPageConfigRespList(list))
 }
 
 // AdminSave Admin 保存页面装修配置新版本。
@@ -47,10 +51,14 @@ func (h *Handler) AdminSave(c *gin.Context) {
 	adminID := c.GetInt64("admin_id")
 	cfg, err := h.svc.Save(c.Request.Context(), adminID, req)
 	if err != nil {
-		srv.Fail(c, errs.ErrInternal)
+		if appErr, ok := err.(*errs.AppError); ok {
+			srv.Fail(c, appErr)
+		} else {
+			srv.Fail(c, errs.ErrInternal)
+		}
 		return
 	}
-	srv.OK(c, cfg)
+	srv.OK(c, newPageConfigResp(cfg))
 }
 
 // AdminActivate Admin 激活指定版本。

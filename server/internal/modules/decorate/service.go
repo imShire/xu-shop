@@ -2,8 +2,11 @@ package decorate
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"time"
 
+	"github.com/microcosm-cc/bluemonday"
 	"gorm.io/gorm"
 
 	"github.com/xushop/xu-shop/internal/pkg/errs"
@@ -18,7 +21,7 @@ func NewService(repo PageConfigRepo) *Service { return &Service{repo: repo} }
 // GetActivePage C 端获取激活配置（无则返回空 modules）。
 func (s *Service) GetActivePage(ctx context.Context, pageKey string) (*PageConfig, error) {
 	cfg, err := s.repo.GetActive(ctx, pageKey)
-	if err == gorm.ErrRecordNotFound {
+	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return &PageConfig{PageKey: pageKey, Modules: Modules{}}, nil
 	}
 	if err != nil {
@@ -40,6 +43,40 @@ type SaveConfigReq struct {
 
 // Save Admin 保存新版本（不自动激活）。
 func (s *Service) Save(ctx context.Context, adminID int64, req SaveConfigReq) (*PageConfig, error) {
+	if len(req.Modules) > 20 {
+		return nil, errs.ErrParam.WithMsg("模块数量不能超过 20")
+	}
+	// 校验模块类型（选项 B：banner / nav_icon 由独立 CRUD 管理，不允许进入 page_config）
+	allowedTypes := map[string]bool{
+		"product_list":   true,
+		"category_entry": true,
+		"rich_text":      true,
+	}
+	for _, m := range req.Modules {
+		if !allowedTypes[m.Type] {
+			return nil, errs.ErrParam.WithMsg("不支持的模块类型：" + m.Type)
+		}
+	}
+
+	// 对 rich_text 内容做 XSS 净化
+	sanitizer := bluemonday.UGCPolicy()
+	sanitizer.AllowNoAttrs().OnElements("p", "br", "b", "strong", "i", "em", "u", "ul", "ol", "li", "h1", "h2", "h3", "a", "img")
+	sanitizer.AllowAttrs("href").OnElements("a")
+	sanitizer.AllowAttrs("src", "alt", "width", "height").OnElements("img")
+
+	for i, m := range req.Modules {
+		if m.Type == "rich_text" {
+			var d struct {
+				Content string `json:"content"`
+			}
+			if err := json.Unmarshal(m.Data, &d); err == nil {
+				d.Content = sanitizer.Sanitize(d.Content)
+				cleaned, _ := json.Marshal(d)
+				req.Modules[i].Data = json.RawMessage(cleaned)
+			}
+		}
+	}
+
 	// 计算版本号
 	list, _ := s.repo.ListByKey(ctx, req.PageKey)
 	version := len(list) + 1

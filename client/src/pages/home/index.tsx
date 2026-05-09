@@ -4,22 +4,25 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tansta
 import { useCallback, useRef, useState } from 'react'
 import ProductCard from '@/components/ProductCard'
 import SkuPicker from '@/components/SkuPicker'
-import { useAuthGuard } from '@/hooks/useAuthGuard'
 import { useShare } from '@/hooks/useShare'
 import { getBanners } from '@/services/banner'
 import { addToCart } from '@/services/cart'
 import { getNavIcons, type NavIcon } from '@/services/nav-icon'
-import { getCategories, getProductDetail, getProducts } from '@/services/product'
+import { getCategories, getProducts } from '@/services/product'
+import { getPageConfig } from '@/services/page-config'
+import type { PageModule } from '@/services/page-config'
+import ProductListModule from '@/components/modules/ProductListModule'
+import CategoryEntryModule from '@/components/modules/CategoryEntryModule'
+import RichTextModule from '@/components/modules/RichTextModule'
 import { useCartStore } from '@/stores/cart'
 import type { Category, Product, ProductDetail, ProductListPage } from '@/types/biz'
 import { buildProductListUrl, mapCategoryLinkToProductListUrl } from '@/utils/product-list'
-import { ArrowRight, Cart, Search } from '@/ui/icons'
+import { ArrowRight, Search } from '@/ui/icons'
 import { Skeleton } from '@/ui/nutui'
 import './index.scss'
 
 const PAGE_SIZE = 8
 const FEATURE_LIMIT = 8
-const HOME_REDIRECT = '/pages/home/index'
 
 type HomeEntry = {
   id: string
@@ -93,12 +96,10 @@ function buildProductMeta(product: Product, categories: Category[]) {
 
 export default function HomePage() {
   const loadingRef = useRef(false)
-  const guard = useAuthGuard()
   const queryClient = useQueryClient()
   const refreshCount = useCartStore((state) => state.refreshCount)
 
   const [activeBanner, setActiveBanner] = useState(0)
-  const [quickAddId, setQuickAddId] = useState('')
   const [skuPickerProduct, setSkuPickerProduct] = useState<ProductDetail | null>(null)
 
   useShare({
@@ -153,6 +154,14 @@ export default function HomePage() {
     },
   })
 
+  const { data: pageConfig } = useQuery({
+    queryKey: ['page-config', 'home'],
+    queryFn: () => getPageConfig('home'),
+    staleTime: 5 * 60 * 1000,
+  })
+
+  const dynamicModules: PageModule[] = pageConfig?.modules ?? []
+
   const allProducts: Product[] =
     productsData?.pages.flatMap((page: ProductListPage) => page.list) ?? []
   const displayBanners = banners.slice(0, 5)
@@ -169,36 +178,6 @@ export default function HomePage() {
 
   const handleFeatureClick = (item: HomeEntry) => {
     navigateByLink(item.linkUrl)
-  }
-
-  const handleQuickAdd = (productId: string) => {
-    void guard(() => {
-      setQuickAddId(productId)
-      void queryClient
-        .fetchQuery({
-          queryKey: ['product', productId],
-          queryFn: () => getProductDetail(productId),
-        })
-        .then((detail) => {
-          if ((detail.skus ?? []).length === 1) {
-            addCartMutation.mutate({ skuId: detail.skus[0].id, qty: 1 })
-            return
-          }
-
-          if ((detail.skus ?? []).length === 0) {
-            void Taro.navigateTo({ url: `/pages/product/detail/index?id=${productId}` })
-            return
-          }
-
-          setSkuPickerProduct(detail)
-        })
-        .catch(() => {
-          void Taro.showToast({ title: '商品信息加载失败', icon: 'none' })
-        })
-        .finally(() => {
-          setQuickAddId('')
-        })
-    }, HOME_REDIRECT)
   }
 
   const handleSkuConfirm = (params: { skuId: string; qty: number }) => {
@@ -306,6 +285,34 @@ export default function HomePage() {
           </View>
         </View>
       ) : null}
+
+      {dynamicModules.map((module, index) => {
+        if (module.type === 'product_list') {
+          return (
+            <ProductListModule
+              key={`module-${index}`}
+              data={module.data as import('@/services/page-config').ProductListData}
+            />
+          )
+        }
+        if (module.type === 'category_entry') {
+          return (
+            <CategoryEntryModule
+              key={`module-${index}`}
+              data={module.data as import('@/services/page-config').CategoryEntryData}
+            />
+          )
+        }
+        if (module.type === 'rich_text') {
+          return (
+            <RichTextModule
+              key={`module-${index}`}
+              data={module.data as import('@/services/page-config').RichTextData}
+            />
+          )
+        }
+        return null
+      })}
 
       <View className='home-page__section-head'>
         <Text className='home-page__section-title'>最新商品</Text>

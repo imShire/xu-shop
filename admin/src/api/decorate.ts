@@ -1,6 +1,6 @@
 import request from '@/utils/request'
 
-export type ModuleType = 'banner' | 'product_list' | 'category_entry' | 'rich_text'
+export type ModuleType = 'product_list' | 'category_entry' | 'rich_text'
 
 export interface PageModule {
   type: ModuleType

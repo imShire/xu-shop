@@ -1,0 +1,25 @@
+.product-list-module {
+  padding: 0 12px 8px;
+
+  &__head {
+    display: flex;
+    align-items: center;
+    padding: 16px 0 8px;
+  }
+
+  &__title {
+    font-size: 16px;
+    font-weight: 600;
+    color: #1a1a1a;
+  }
+
+  &__grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  &__item {
+    min-width: 0;
+  }
+}
