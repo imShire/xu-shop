@@ -55,4 +55,10 @@ secrets/
 .claude/*
 docs/**
 mock/**
-scripts/
+scripts/load-test/results/
+# load-test 脚本应入库，results/ 产物不入库
+!scripts/load-test/
+!scripts/load-test/*.js
+!scripts/load-test/*.sh
+!scripts/load-test/README.md
+scripts/load-test/results/
