@@ -29,9 +29,10 @@ var (
 	ErrRateLimit       = New(10006, "请求过于频繁", 429)
 	ErrInternal        = New(10500, "内部错误", 500)
 	ErrServiceDegraded = New(10503, "系统繁忙，请稍后重试", 503)
-	ErrPhoneFormat     = New(20001, "手机号格式错误", 400)
-	ErrAccountLocked   = New(20003, "账号已锁定", 401)
-	ErrPhoneBound      = New(20004, "手机号已被绑定", 409)
+	ErrPhoneFormat      = New(20001, "手机号格式错误", 400)
+	ErrAccountLocked    = New(20003, "账号已锁定", 401)
+	ErrPhoneBound       = New(20004, "手机号已被绑定", 409)
+	ErrAccountDisabled  = New(20006, "账号已停用", 403)
 	ErrSessionExpired  = New(20005, "微信会话已过期，请重新登录", 401)
 
 	// 支付相关错误

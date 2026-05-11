@@ -6,14 +6,20 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/xushop/xu-shop/internal/pkg/errs"
+	pkgoss "github.com/xushop/xu-shop/internal/pkg/oss"
 	srv "github.com/xushop/xu-shop/internal/server"
 )
 
 // Handler 系统设置 HTTP 处理器。
-type Handler struct{ svc *Service }
+type Handler struct {
+	svc       *Service
+	ossClient *pkgoss.Client // 可为 nil（OSS 未配置时）
+}
 
 // NewHandler 构造 Handler。
-func NewHandler(svc *Service) *Handler { return &Handler{svc: svc} }
+func NewHandler(svc *Service, ossClient *pkgoss.Client) *Handler {
+	return &Handler{svc: svc, ossClient: ossClient}
+}
 
 // GetUploadSettings 获取上传设置。
 func (h *Handler) GetUploadSettings(c *gin.Context) {
@@ -121,4 +127,19 @@ func failWith(c *gin.Context, err error) {
 		return
 	}
 	srv.Fail(c, errs.ErrInternal)
+}
+
+// GetSTSToken 获取 OSS STS 临时凭证，供前端直传 uploads/ 前缀。
+// 需要任意 admin 登录权限。
+func (h *Handler) GetSTSToken(c *gin.Context) {
+	if h.ossClient == nil {
+		srv.Fail(c, errs.ErrInternal.WithMsg("OSS 未配置"))
+		return
+	}
+	creds, err := h.ossClient.GetSTSToken(c.Request.Context())
+	if err != nil {
+		failWith(c, err)
+		return
+	}
+	srv.OK(c, creds)
 }

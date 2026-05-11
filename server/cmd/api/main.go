@@ -40,6 +40,7 @@ import (
 	pkgjwt "github.com/xushop/xu-shop/internal/pkg/jwt"
 	pkgkdniao "github.com/xushop/xu-shop/internal/pkg/kdniao"
 	pkglogger "github.com/xushop/xu-shop/internal/pkg/logger"
+	pkgoss "github.com/xushop/xu-shop/internal/pkg/oss"
 	"github.com/xushop/xu-shop/internal/pkg/qywx"
 	"github.com/xushop/xu-shop/internal/pkg/stock"
 	pkgupload "github.com/xushop/xu-shop/internal/pkg/upload"
@@ -153,7 +154,14 @@ func main() {
 		account.RegisterRoutes(v1, accountHandler, app.Redis, app.DB, jwtCfg)
 		uploadManager := pkgupload.NewManager(app.DB, cfg.App.SecretKey)
 		adminSvc := adminmod.NewService(accountRoleRepo, uploadManager, app.DB)
-		adminHandler := adminmod.NewHandler(adminSvc)
+		var ossClient *pkgoss.Client
+		if cfg.OSS.AccessKeyID != "" && cfg.OSS.Bucket != "" {
+			ossClient, err = pkgoss.New(cfg)
+			if err != nil {
+				pkglogger.L().Warn("oss client init failed", zap.Error(err))
+			}
+		}
+		adminHandler := adminmod.NewHandler(adminSvc, ossClient)
 		adminmod.RegisterRoutes(v1, adminHandler, app.Redis, app.DB, jwtCfg)
 		r.GET("/uploads/*filepath", adminHandler.ServeLocalFile)
 

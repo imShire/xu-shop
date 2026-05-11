@@ -76,6 +76,8 @@ type OSSConfig struct {
 	AccessKeyID     string
 	AccessKeySecret string
 	CDNDomain       string
+	STSRoleArn      string // STS AssumeRole ARN，格式 acs:ram::ACCOUNT_ID:role/ROLE_NAME
+	STSEndpoint     string // STS 接入点，默认 https://sts.aliyuncs.com
 }
 
 type KDNiaoConfig struct {
@@ -155,6 +157,8 @@ func Load() (*Config, error) {
 	cfg.OSS.AccessKeyID = v.GetString("OSS_AK")
 	cfg.OSS.AccessKeySecret = v.GetString("OSS_SK")
 	cfg.OSS.CDNDomain = v.GetString("OSS_CDN_DOMAIN")
+	cfg.OSS.STSRoleArn = v.GetString("OSS_STS_ROLE_ARN")
+	cfg.OSS.STSEndpoint = v.GetString("OSS_STS_ENDPOINT")
 
 	cfg.KDNiao.BusinessID = v.GetString("KDNIAO_BUSINESS_ID")
 	cfg.KDNiao.APIKey = v.GetString("KDNIAO_API_KEY")

@@ -323,6 +323,111 @@ func (s *Service) HandleWxpayNotify(ctx context.Context, body []byte, headers ma
 	return nil
 }
 
+// ---- Active Query ----
+
+// HandleQuerySuccess 主动查单补单：将微信查单成功结果落库并触发状态机。
+// 适用于 periodic job 主动轮询，跳过签名校验（已由 wxpay.Client 保证调用安全）。
+// 幂等：若 payment 记录已存在（UpsertByTxn 返回 isNew=false），直接返回 nil。
+func (s *Service) HandleQuerySuccess(ctx context.Context, orderNo, transactionID string, amtCents int64, paidAt *time.Time) error {
+	// 1. 加载订单（SELECT FOR UPDATE）
+	var orderID, orderPayCents int64
+	var orderStatus string
+
+	err := s.orderDB.DB().WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var o struct {
+			ID       int64  `gorm:"column:id"`
+			PayCents int64  `gorm:"column:pay_cents"`
+			Status   string `gorm:"column:status"`
+		}
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+			Table(`"order"`).
+			Select("id, pay_cents, status").
+			Where("order_no = ?", orderNo).
+			First(&o).Error; err != nil {
+			return err
+		}
+		orderID = o.ID
+		orderPayCents = o.PayCents
+		orderStatus = o.Status
+		return nil
+	})
+	if err != nil {
+		logger.Ctx(ctx).Error("active_query: find order failed",
+			zap.String("order_no", orderNo), zap.Error(err))
+		return errs.ErrInternal
+	}
+
+	// 2. 幂等 upsert（以 transaction_id 为唯一键）
+	raw, _ := json.Marshal(map[string]any{
+		"transaction_id": transactionID,
+		"out_trade_no":   orderNo,
+		"amount_cents":   amtCents,
+		"source":         "active_query",
+	})
+	pmt, isNew, err := s.repo.UpsertByTxn(ctx, transactionID, orderNo, orderID, amtCents, raw)
+	if err != nil {
+		logger.Ctx(ctx).Error("active_query: upsert payment failed", zap.Error(err))
+		return errs.ErrInternal
+	}
+	if !isNew {
+		logger.Ctx(ctx).Info("active_query: already processed, skip", zap.String("txn_id", transactionID))
+		return nil
+	}
+
+	// 3. 金额校验
+	if amtCents != orderPayCents {
+		effectivePaidAt := time.Now()
+		if paidAt != nil {
+			effectivePaidAt = *paidAt
+		}
+		_ = s.repo.MarkSuccess(ctx, pmt.ID, raw, effectivePaidAt)
+		_ = s.repo.MarkOrphan(ctx, pmt.ID)
+
+		payload, _ := json.Marshal(map[string]any{
+			"payment_id":  pmt.ID,
+			"order_id":    orderID,
+			"order_no":    orderNo,
+			"amount":      amtCents,
+			"total_cents": amtCents,
+			"reason":      "主动查单：支付金额与订单金额不一致，自动原路退款",
+		})
+		if s.enqueuer != nil {
+			task := asynq.NewTask(TaskPaymentAutoRefund, payload)
+			if _, enqErr := s.enqueuer.EnqueueContext(ctx, task, asynq.MaxRetry(3)); enqErr != nil {
+				logger.Ctx(ctx).Error("active_query: enqueue auto_refund failed", zap.Error(enqErr))
+			}
+		}
+		logger.Ctx(ctx).Warn("active_query: amount mismatch, auto refund enqueued",
+			zap.String("order_no", orderNo),
+			zap.Int64("expect", orderPayCents), zap.Int64("actual", amtCents))
+		return nil
+	}
+
+	// 4. 幂等：非 pending 直接跳过
+	if orderStatus != "pending" {
+		logger.Ctx(ctx).Info("active_query: order not pending, skip",
+			zap.String("order_no", orderNo), zap.String("status", orderStatus))
+		return nil
+	}
+
+	// 5. 标记支付成功 + 触发状态机
+	effectivePaidAt := time.Now()
+	if paidAt != nil {
+		effectivePaidAt = *paidAt
+	}
+	if err := s.repo.MarkSuccess(ctx, pmt.ID, raw, effectivePaidAt); err != nil {
+		logger.Ctx(ctx).Error("active_query: mark payment success failed", zap.Error(err))
+	}
+	if err := s.orderDB.Transition(ctx, orderID, "pay_success", "system", 0, "主动查单补单成功"); err != nil {
+		logger.Ctx(ctx).Error("active_query: order transition pay_success failed",
+			zap.Int64("order_id", orderID), zap.Error(err))
+		return errs.ErrInternal
+	}
+
+	logger.Ctx(ctx).Info("active_query:补单成功", zap.String("txn_id", transactionID), zap.String("order_no", orderNo))
+	return nil
+}
+
 // ---- Refund Notify ----
 
 // HandleWxpayRefundNotify 处理微信退款回调。

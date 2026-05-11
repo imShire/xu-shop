@@ -18,3 +18,6 @@ export const disableUser = (id: string | number) => request.post(`/admin/users/$
 export const enableUser = (id: string | number) => request.post(`/admin/users/${id}/enable`)
 
 export const getUserDetail = (id: string) => request.get<any, any>(`/admin/users/${id}`)
+
+export const exportUsers = (params: { phone?: string; nickname?: string; status?: string }) =>
+  request.get('/admin/users/export', { params, responseType: 'blob' })

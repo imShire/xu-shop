@@ -2,6 +2,7 @@ package order
 
 import (
 	"context"
+	"time"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -38,6 +39,8 @@ type OrderRepo interface {
 	CreateFreightTemplate(ctx context.Context, t *FreightTemplate) error
 	UpdateFreightTemplate(ctx context.Context, t *FreightTemplate) error
 	DeleteFreightTemplate(ctx context.Context, id int64) error
+	// FindPendingForActiveQuery 查询主动查单窗口内的 pending 订单（created_at BETWEEN from AND to），最多 limit 条。
+	FindPendingForActiveQuery(ctx context.Context, from, to time.Time, limit int) ([]Order, error)
 	// DB 引用（事务内使用）
 	DB() *gorm.DB
 }
@@ -214,4 +217,16 @@ func (r *orderRepoImpl) UpdateFreightTemplate(ctx context.Context, t *FreightTem
 
 func (r *orderRepoImpl) DeleteFreightTemplate(ctx context.Context, id int64) error {
 	return r.db.WithContext(ctx).Delete(&FreightTemplate{}, id).Error
+}
+
+// FindPendingForActiveQuery 查询主动查单窗口内的 pending 订单（created_at BETWEEN from AND to），最多 limit 条。
+func (r *orderRepoImpl) FindPendingForActiveQuery(ctx context.Context, from, to time.Time, limit int) ([]Order, error) {
+	var list []Order
+	err := r.db.WithContext(ctx).
+		Where(`"order".status = ? AND "order".created_at >= ? AND "order".created_at <= ?`,
+			StatusPending, from, to).
+		Order(`"order".created_at ASC`).
+		Limit(limit).
+		Find(&list).Error
+	return list, err
 }

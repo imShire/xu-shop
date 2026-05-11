@@ -5,7 +5,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import ProTable from '@/components/ProTable/index.vue'
 import type { ColumnDef } from '@/components/ProTable/index.vue'
 import { useTable } from '@/composables/useTable'
-import { getUserList, createUser, disableUser, enableUser } from '@/api/user'
+import { getUserList, createUser, disableUser, enableUser, exportUsers } from '@/api/user'
 import { rechargeBalance } from '@/api/balance'
 import { formatTime, formatAmount } from '@/utils/format'
 
@@ -39,6 +39,16 @@ async function toggleStatus(row: any) {
   } catch (e: any) {
     if (e !== 'cancel') ElMessage.error(e?.message || '操作失败')
   }
+}
+
+async function handleExport() {
+  const blob = await exportUsers(searchForm.value)
+  const url = URL.createObjectURL(blob as unknown as Blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `users_${Date.now()}.csv`
+  a.click()
+  URL.revokeObjectURL(url)
 }
 
 // 余额充值
@@ -91,7 +101,7 @@ const phoneRule = [
 ]
 const passwordRule = [
   { required: true, message: '请输入密码', trigger: 'blur' },
-  { min: 6, message: '密码至少6位', trigger: 'blur' },
+  { min: 8, message: '密码至少8位', trigger: 'blur' },
 ]
 
 function openCreateDialog() {
@@ -136,6 +146,7 @@ onMounted(() => fetch(searchForm.value))
     >
       <template #toolbar>
         <el-button type="primary" @click="openCreateDialog">新建用户</el-button>
+        <el-button @click="handleExport">导出用户</el-button>
       </template>
 
       <template #search>

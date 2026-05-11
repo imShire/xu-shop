@@ -194,8 +194,8 @@ func (s *Service) BindPhone(ctx context.Context, userID int64, encryptedData, iv
 		return errs.ErrParam.WithMsg("无法获取手机号")
 	}
 
-	// 检查手机号是否已绑定其他活跃账号
-	cnt, err := s.userRepo.CountByPhone(ctx, phone)
+	// 检查手机号是否已被其他活跃账号绑定（排除当前用户自身）
+	cnt, err := s.userRepo.CountActiveByPhoneExclude(ctx, phone, userID)
 	if err != nil {
 		return errs.ErrInternal
 	}
@@ -421,6 +421,11 @@ func (s *Service) PhoneLogin(ctx context.Context, req PhoneLoginReq) (*ClientLog
 	failKey := fmt.Sprintf("login:fail:%s", req.Phone)
 	_ = s.rdb.Del(ctx, failKey)
 
+	// 检查账号状态
+	if u.Status != "active" {
+		return nil, errs.ErrAccountDisabled
+	}
+
 	// 颁发 JWT
 	result, err := s.signUserToken(u.ID)
 	if err != nil {
@@ -507,6 +512,20 @@ func generateSmsCode() (string, error) {
 	// 取无符号 32 位整数，对 1000000 取模保证 6 位
 	n := (uint32(b[0])<<24 | uint32(b[1])<<16 | uint32(b[2])<<8 | uint32(b[3])) % 1000000
 	return fmt.Sprintf("%06d", n), nil
+}
+
+// validateAdminPassword 校验管理员密码强度（≥12 位，同时包含字母、数字和特殊符号）。
+func validateAdminPassword(pwd string) error {
+	if len(pwd) < 12 {
+		return errors.New("管理员密码至少 12 位")
+	}
+	hasLetter := regexp.MustCompile(`[a-zA-Z]`).MatchString(pwd)
+	hasDigit := regexp.MustCompile(`[0-9]`).MatchString(pwd)
+	hasSpecial := regexp.MustCompile(`[^a-zA-Z0-9]`).MatchString(pwd)
+	if !hasLetter || !hasDigit || !hasSpecial {
+		return errors.New("管理员密码需同时包含字母、数字和特殊符号")
+	}
+	return nil
 }
 
 // validatePassword 校验密码强度（≥8位，含字母、数字和特殊符号）。
@@ -632,6 +651,9 @@ func (s *Service) AdminLogout(ctx context.Context, jti string, exp time.Duration
 
 // CreateAdmin 创建管理员（密码强度校验 + bcrypt hash）。
 func (s *Service) CreateAdmin(ctx context.Context, req CreateAdminReq) (*AdminResp, error) {
+	if err := validateAdminPassword(req.Password); err != nil {
+		return nil, errs.ErrParam.WithMsg(err.Error())
+	}
 	hash, err := bcrypt.GenerateFromPassword([]byte(req.Password), 12)
 	if err != nil {
 		return nil, errs.ErrInternal
@@ -708,6 +730,9 @@ func (s *Service) EnableAdmin(ctx context.Context, id int64) error {
 
 // ResetAdminPwd 重置管理员密码（强度校验 + bcrypt）。
 func (s *Service) ResetAdminPwd(ctx context.Context, id int64, newPwd string) error {
+	if err := validateAdminPassword(newPwd); err != nil {
+		return errs.ErrParam.WithMsg(err.Error())
+	}
 	hash, err := bcrypt.GenerateFromPassword([]byte(newPwd), 12)
 	if err != nil {
 		return errs.ErrInternal

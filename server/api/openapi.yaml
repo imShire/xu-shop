@@ -1738,6 +1738,37 @@ paths:
         "200":
           description: 修改成功
 
+  /admin/upload/sts-token:
+    post:
+      tags: [Admin系统]
+      summary: 获取 OSS STS 临时凭证（前端直传 uploads/ 前缀）
+      description: 返回有效期 3600s 的临时 AccessKey/Token，Policy 限制只允许写入 uploads/ 前缀。
+      security:
+        - BearerAuth: []
+      responses:
+        "200":
+          description: STS 凭证
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  access_key_id:
+                    type: string
+                  access_key_secret:
+                    type: string
+                  security_token:
+                    type: string
+                  expiration:
+                    type: string
+                    format: date-time
+                  bucket:
+                    type: string
+                  endpoint:
+                    type: string
+        "503":
+          description: OSS 未配置
+
   /admin/upload/image:
     post:
       tags: [Admin商品]

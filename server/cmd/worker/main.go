@@ -130,6 +130,20 @@ func main() {
 	mux.Handle(jobs.TaskExpressPull, jobs.NewExpressPullHandler(shippingSvc))
 	mux.Handle(jobs.TaskNotificationSend, jobs.NewNotificationSendHandler(notifSvc))
 	mux.Handle(jobs.TaskStatsAggregate, jobs.NewStatsAggregateHandler(statsSvc))
+	mux.Handle(jobs.TaskPaymentActiveQuery, jobs.NewPaymentActiveQueryHandler(orderRepo, paymentSvc, wxpayClient))
+
+	// ---- asynq Scheduler：定时投递 periodic 任务 ----
+	scheduler := asynq.NewScheduler(
+		asynq.RedisClientOpt{
+			Addr: cfg.Asynq.RedisAddr,
+			DB:   cfg.Asynq.RedisDB,
+		},
+		nil,
+	)
+	// 每 2 分钟触发一次主动查单（payload 为空）
+	if _, err := scheduler.Register("*/2 * * * *", asynq.NewTask(jobs.TaskPaymentActiveQuery, nil)); err != nil {
+		pkglogger.L().Fatal("scheduler register payment:active_query failed", zap.Error(err))
+	}
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
@@ -141,8 +155,16 @@ func main() {
 		}
 	}()
 
+	go func() {
+		pkglogger.L().Info("scheduler starting")
+		if err := scheduler.Run(); err != nil {
+			pkglogger.L().Fatal("scheduler run error", zap.Error(err))
+		}
+	}()
+
 	<-quit
 	pkglogger.L().Info("worker shutting down...")
+	scheduler.Shutdown()
 	app.AsynqServer.Shutdown()
 	pkglogger.L().Info("worker stopped")
 }

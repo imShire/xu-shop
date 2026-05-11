@@ -127,6 +127,10 @@ func (m *mockOrderRepo) UpdateFreightTemplate(_ context.Context, _ *FreightTempl
 
 func (m *mockOrderRepo) DeleteFreightTemplate(_ context.Context, _ int64) error { return nil }
 
+func (m *mockOrderRepo) FindPendingForActiveQuery(_ context.Context, _, _ time.Time, _ int) ([]Order, error) {
+	return nil, nil
+}
+
 func (m *mockOrderRepo) FindItemsByOrderIDs(_ context.Context, _ []int64) ([]OrderItem, error) {
 	return nil, nil
 }
@@ -241,6 +245,12 @@ func (m *mockInventoryRepo) CreateAlert(_ context.Context, _ *inventory.LowStock
 }
 func (m *mockInventoryRepo) FindAllSKUStocks(_ context.Context) ([]inventory.SKUStockRow, error) {
 	return nil, nil
+}
+func (m *mockInventoryRepo) GetSKUThreshold(_ context.Context, _ int64) (int, error) {
+	return 0, nil
+}
+func (m *mockInventoryRepo) HasUnreadAlert(_ context.Context, _ int64) (bool, error) {
+	return false, nil
 }
 
 // ---- mock AddressRepo ----

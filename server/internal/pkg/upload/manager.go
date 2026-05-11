@@ -11,10 +11,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"net/url"
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -43,6 +45,9 @@ var mimeToExt = map[string]string{
 	"image/webp": "webp",
 	"image/gif":  "gif",
 }
+
+// allowedImageExtRegexp 文件名后缀白名单（大小写不敏感，禁止 SVG 等）。
+var allowedImageExtRegexp = regexp.MustCompile(`(?i)\.(jpg|jpeg|png|gif|webp)$`)
 
 // Settings 上传配置。
 type Settings struct {
@@ -260,6 +265,12 @@ func (m *Manager) UploadImage(ctx context.Context, biz string, r io.Reader, file
 		return "", errs.ErrParam.WithMsg(fmt.Sprintf("图片不能超过 %dMB", settings.MaxSizeMB))
 	}
 
+	// 校验文件名后缀（大小写不敏感）
+	if !allowedImageExtRegexp.MatchString(filename) {
+		return "", errs.ErrParam.WithMsg("仅支持 jpg/png/webp/gif 图片")
+	}
+
+	// 取前 512 字节检测真实 MIME，防止伪造后缀
 	mimeType := detectImageMIME(body)
 	if mimeType == "" {
 		return "", errs.ErrParam.WithMsg("仅支持 jpg/png/webp/gif 图片")
@@ -437,23 +448,23 @@ func bucketLookupType(forcePathStyle bool) minio.BucketLookupType {
 	return minio.BucketLookupAuto
 }
 
-func detectImageMIME(header []byte) string {
-	if len(header) < 4 {
-		return ""
+// detectImageMIME 读取前 512 字节，用 http.DetectContentType 检测真实 MIME，
+// 仅返回白名单类型（image/jpeg、image/png、image/gif、image/webp），其余返回空字符串。
+func detectImageMIME(body []byte) string {
+	sample := body
+	if len(sample) > 512 {
+		sample = sample[:512]
 	}
-	h := string(header)
-	switch {
-	case strings.HasPrefix(h, "\xff\xd8\xff"):
-		return "image/jpeg"
-	case strings.HasPrefix(h, "\x89PNG\r\n"):
-		return "image/png"
-	case strings.HasPrefix(h, "GIF87a") || strings.HasPrefix(h, "GIF89a"):
-		return "image/gif"
-	case strings.HasPrefix(h, "RIFF") && len(header) >= 12 && string(header[8:12]) == "WEBP":
-		return "image/webp"
-	default:
-		return ""
+	detected := http.DetectContentType(sample)
+	// 去掉可能的参数部分（如 "text/plain; charset=utf-8"）
+	if idx := strings.IndexByte(detected, ';'); idx >= 0 {
+		detected = strings.TrimSpace(detected[:idx])
 	}
+	// 仅允许白名单 MIME，image/svg+xml 等不在 mimeToExt 中，自动拒绝
+	if _, ok := mimeToExt[detected]; ok {
+		return detected
+	}
+	return ""
 }
 
 func encryptString(secretKey, value string) (string, error) {

@@ -19,6 +19,8 @@ type UserRepo interface {
 	UpsertByOpenidH5(ctx context.Context, user *User) error
 	Update(ctx context.Context, id int64, updates map[string]any) error
 	CountByPhone(ctx context.Context, phone string) (int64, error)
+	// CountActiveByPhoneExclude 查询 status='active' 且手机号匹配、且 id != excludeUserID 的用户数量。
+	CountActiveByPhoneExclude(ctx context.Context, phone string, excludeUserID int64) (int64, error)
 	SessionKeyKey(userID int64) string
 	GetUserByPhone(ctx context.Context, phone string) (*User, error)
 	SetPasswordHash(ctx context.Context, userID int64, hash string) error
@@ -119,6 +121,15 @@ func (r *userRepoImpl) CountByPhone(ctx context.Context, phone string) (int64, e
 	var cnt int64
 	err := r.db.WithContext(ctx).Model(&User{}).
 		Where("phone = ? AND status != 'deactivated'", phone).
+		Count(&cnt).Error
+	return cnt, err
+}
+
+// CountActiveByPhoneExclude 查询 status='active' 且手机号匹配、且 id != excludeUserID 的用户数量。
+func (r *userRepoImpl) CountActiveByPhoneExclude(ctx context.Context, phone string, excludeUserID int64) (int64, error) {
+	var cnt int64
+	err := r.db.WithContext(ctx).Model(&User{}).
+		Where("phone = ? AND status = 'active' AND id != ?", phone, excludeUserID).
 		Count(&cnt).Error
 	return cnt, err
 }

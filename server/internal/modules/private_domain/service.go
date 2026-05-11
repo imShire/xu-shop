@@ -13,9 +13,11 @@ import (
 
 	"github.com/xushop/xu-shop/internal/pkg/errs"
 	"github.com/xushop/xu-shop/internal/pkg/logger"
+	"github.com/xushop/xu-shop/internal/pkg/poster"
 	"github.com/xushop/xu-shop/internal/pkg/qywx"
 	"github.com/xushop/xu-shop/internal/pkg/snowflake"
 	pkgtypes "github.com/xushop/xu-shop/internal/pkg/types"
+	"github.com/xushop/xu-shop/internal/pkg/wxacode"
 )
 
 // ---- 请求 DTO ----
@@ -48,6 +50,25 @@ type UpdateTagReq struct {
 	Name string `json:"name" binding:"required"`
 }
 
+// PosterProductFinder 海报渲染所需的商品查询接口。
+type PosterProductFinder interface {
+	// FindProductForPoster 按 ID 查询海报所需商品信息。
+	FindProductForPoster(ctx context.Context, id int64) (*PosterProductInfo, error)
+}
+
+// PosterProductInfo 海报渲染所需的商品信息。
+type PosterProductInfo struct {
+	Title         string
+	MainImage     string
+	PriceMinCents int64
+}
+
+// OSSBytesUploader OSS 任意字节上传接口（用于海报上传）。
+type OSSBytesUploader interface {
+	// UploadBytes 以指定 key 和 content-type 上传字节，返回 CDN URL。
+	UploadBytes(ctx context.Context, key string, data []byte, contentType string) (string, error)
+}
+
 // Service 私域服务。
 type Service struct {
 	channelRepo ChannelCodeRepo
@@ -56,6 +77,12 @@ type Service struct {
 	shareRepo   ShareRepo
 	qywxClient  qywx.Client
 	rdb         *redis.Client
+
+	// 以下为海报渲染依赖（可选），通过 WithPosterDeps 注入。
+	productFinder  PosterProductFinder
+	wxacodeClient  wxacode.Client
+	posterRenderer poster.Renderer
+	ossUploader    OSSBytesUploader
 }
 
 // NewService 构造 Service。
@@ -75,6 +102,20 @@ func NewService(
 		qywxClient:  qywxClient,
 		rdb:         rdb,
 	}
+}
+
+// WithPosterDeps 注入海报渲染所需依赖，返回 *Service 支持链式调用。
+func (s *Service) WithPosterDeps(
+	productFinder PosterProductFinder,
+	wxacodeClient wxacode.Client,
+	posterRenderer poster.Renderer,
+	ossUploader OSSBytesUploader,
+) *Service {
+	s.productFinder = productFinder
+	s.wxacodeClient = wxacodeClient
+	s.posterRenderer = posterRenderer
+	s.ossUploader = ossUploader
+	return s
 }
 
 // CreateChannelCode 创建渠道码（调企微 API）。
@@ -337,9 +378,10 @@ func (s *Service) RecordShareVisit(ctx context.Context, shareUserID, viewerUserI
 	return s.shareRepo.CreateAttribution(ctx, a)
 }
 
-// GeneratePoster UPSERT 短码 + 构造海报 URL（OSS 缓存由外部实现，此处返回可分享链接）。
+// GeneratePoster UPSERT 短码，生成海报并上传 OSS，返回 CDN URL（Redis 缓存 24h）。
+// 若未通过 WithPosterDeps 注入渲染依赖，则回退到占位符 URL。
 func (s *Service) GeneratePoster(ctx context.Context, userID, productID int64) (string, error) {
-	// OSS 缓存 key
+	// 1. 检查 Redis 缓存
 	cacheKey := fmt.Sprintf("poster:%d:%d", userID, productID)
 	if s.rdb != nil {
 		if url, err := s.rdb.Get(ctx, cacheKey).Result(); err == nil && url != "" {
@@ -347,6 +389,7 @@ func (s *Service) GeneratePoster(ctx context.Context, userID, productID int64) (
 		}
 	}
 
+	// 2. UPSERT 短码，获取 base36 scene
 	pid := productID
 	sc := &ShareShortCode{
 		ID:          snowflake.NextID(),
@@ -357,11 +400,48 @@ func (s *Service) GeneratePoster(ctx context.Context, userID, productID int64) (
 	if err != nil {
 		return "", fmt.Errorf("private_domain: upsert short code: %w", err)
 	}
-
-	// 用 base36 编码 ID 作为 scene 参数
 	scene := strconv.FormatInt(created.ID, 36)
-	posterURL := fmt.Sprintf("https://poster.placeholder/share/%s", scene)
 
+	// 3. 若未注入海报依赖，返回占位符
+	if s.posterRenderer == nil || s.wxacodeClient == nil || s.ossUploader == nil || s.productFinder == nil {
+		posterURL := fmt.Sprintf("https://poster.placeholder/share/%s", scene)
+		if s.rdb != nil {
+			_ = s.rdb.Set(ctx, cacheKey, posterURL, 24*time.Hour).Err()
+		}
+		return posterURL, nil
+	}
+
+	// 4. 查询商品信息
+	product, err := s.productFinder.FindProductForPoster(ctx, productID)
+	if err != nil {
+		return "", fmt.Errorf("private_domain: find product: %w", err)
+	}
+
+	// 5. 获取小程序码
+	qrBytes, err := s.wxacodeClient.GetUnlimited(ctx, scene, "pages/product/detail/index")
+	if err != nil {
+		return "", fmt.Errorf("private_domain: get wxacode: %w", err)
+	}
+
+	// 6. 渲染海报
+	imgBytes, err := s.posterRenderer.Render(ctx, poster.RenderReq{
+		ProductImageURL: product.MainImage,
+		Title:           product.Title,
+		PriceCents:      product.PriceMinCents,
+		QRCodePNG:       qrBytes,
+	})
+	if err != nil {
+		return "", fmt.Errorf("private_domain: render poster: %w", err)
+	}
+
+	// 7. 上传 OSS
+	ossKey := fmt.Sprintf("poster/%d/%s.jpg", productID, scene)
+	posterURL, err := s.ossUploader.UploadBytes(ctx, ossKey, imgBytes, "image/jpeg")
+	if err != nil {
+		return "", fmt.Errorf("private_domain: upload poster: %w", err)
+	}
+
+	// 8. 缓存 24h
 	if s.rdb != nil {
 		_ = s.rdb.Set(ctx, cacheKey, posterURL, 24*time.Hour).Err()
 	}

@@ -20,6 +20,7 @@ func RegisterRoutes(r *gin.RouterGroup, h *Handler, rdb *redis.Client, db *gorm.
 	admin.PUT("/settings/upload", adminAuth("system.upload.edit"), h.UpdateUploadSettings)
 	admin.POST("/settings/upload/test", adminAuth("system.upload.edit"), h.TestUploadSettings)
 	admin.POST("/settings/upload/probe", adminAuth("system.upload.edit"), h.ProbeUploadSettings)
+	admin.POST("/upload/sts-token", adminAuth(), h.GetSTSToken)
 	admin.GET("/settings/:group", adminAuth("system.setting.view"), h.GetSettings)
 	admin.PUT("/settings/:group", adminAuth("system.setting.edit"), h.UpdateSettings)
 }

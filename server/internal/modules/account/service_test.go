@@ -67,6 +67,9 @@ func (m *mockUserRepo) Update(_ context.Context, id int64, updates map[string]an
 	return nil
 }
 func (m *mockUserRepo) CountByPhone(_ context.Context, _ string) (int64, error) { return 0, nil }
+func (m *mockUserRepo) CountActiveByPhoneExclude(_ context.Context, _ string, _ int64) (int64, error) {
+	return 0, nil
+}
 func (m *mockUserRepo) GetUserByPhone(_ context.Context, _ string) (*account.User, error) {
 	return nil, errors.New("record not found")
 }
@@ -81,6 +84,19 @@ func (m *mockUserRepo) ListUsers(_ context.Context, _, _, _ string, _, _ int) ([
 	return nil, 0, nil
 }
 func (m *mockUserRepo) SessionKeyKey(_ int64) string { return "" }
+func (m *mockUserRepo) GetBalance(_ context.Context, _ int64) (int64, error)  { return 0, nil }
+func (m *mockUserRepo) RechargeBalance(_ context.Context, _ int64, _ int64, _ int64, _ string) error {
+	return nil
+}
+func (m *mockUserRepo) DeductBalance(_ context.Context, _ int64, _ int64, _ string, _ int64, _ string) error {
+	return nil
+}
+func (m *mockUserRepo) RefundBalance(_ context.Context, _ int64, _ int64, _ string, _ int64, _ string) error {
+	return nil
+}
+func (m *mockUserRepo) ListBalanceLogs(_ context.Context, _ int64, _, _ int) ([]account.BalanceLog, int64, error) {
+	return nil, 0, nil
+}
 
 // ---- mock admin repo ----
 

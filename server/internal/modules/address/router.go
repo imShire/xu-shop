@@ -26,5 +26,5 @@ func RegisterRoutes(r *gin.RouterGroup, h *Handler, rdb *redis.Client, db *gorm.
 	}
 
 	// 开放行政区划接口（无鉴权）
-	r.GET("/open/regions", h.ListRegions)
+	r.GET("/open/regions", middleware.PublicCache(86400, 0), middleware.ETagMiddleware(), h.ListRegions)
 }
