@@ -131,9 +131,9 @@ type OrderItemResp struct {
 // OrderDetailResp 订单详情响应。
 type OrderDetailResp struct {
 	OrderResp
-	Items   []OrderItemResp `json:"items"`
-	Logs    []OrderLog      `json:"logs"`
-	Remarks []OrderRemark   `json:"remarks"`
+	Items   []OrderItemResp   `json:"items"`
+	Logs    []OrderLogResp    `json:"logs"`
+	Remarks []OrderRemarkResp `json:"remarks"`
 }
 
 // AdminOrderListResp 后台订单列表响应（含商品行快照）。
@@ -714,10 +714,14 @@ func (s *Service) GetOrder(ctx context.Context, orderID, userID int64) (*OrderDe
 	if err := s.repo.DB().WithContext(ctx).Where("order_id = ?", orderID).Find(&items).Error; err != nil {
 		return nil, errs.ErrInternal
 	}
-	var logs []OrderLog
+	var rawLogs []OrderLog
 	if err := s.repo.DB().WithContext(ctx).Where("order_id = ?", orderID).
-		Order("created_at ASC").Find(&logs).Error; err != nil {
+		Order("created_at ASC").Find(&rawLogs).Error; err != nil {
 		return nil, errs.ErrInternal
+	}
+	logs := make([]OrderLogResp, len(rawLogs))
+	for i := range rawLogs {
+		logs[i] = toOrderLogResp(&rawLogs[i])
 	}
 
 	itemResps := make([]OrderItemResp, len(items))
@@ -957,8 +961,16 @@ func (s *Service) AddRemark(ctx context.Context, orderID, adminID int64, content
 }
 
 // ListRemarks 获取管理员备注列表。
-func (s *Service) ListRemarks(ctx context.Context, orderID int64) ([]OrderRemark, error) {
-	return s.repo.ListRemarks(ctx, orderID)
+func (s *Service) ListRemarks(ctx context.Context, orderID int64) ([]OrderRemarkResp, error) {
+	list, err := s.repo.ListRemarks(ctx, orderID)
+	if err != nil {
+		return nil, err
+	}
+	resp := make([]OrderRemarkResp, len(list))
+	for i := range list {
+		resp[i] = toOrderRemarkResp(&list[i])
+	}
+	return resp, nil
 }
 
 // ---- 运费模板 ----
@@ -1059,12 +1071,20 @@ func (s *Service) AdminGetOrder(ctx context.Context, orderID int64) (*OrderDetai
 	if err := s.repo.DB().WithContext(ctx).Where("order_id = ?", orderID).Find(&items).Error; err != nil {
 		return nil, errs.ErrInternal
 	}
-	var logs []OrderLog
+	var rawLogs []OrderLog
 	if err := s.repo.DB().WithContext(ctx).Where("order_id = ?", orderID).
-		Order("created_at ASC").Find(&logs).Error; err != nil {
+		Order("created_at ASC").Find(&rawLogs).Error; err != nil {
 		return nil, errs.ErrInternal
 	}
-	remarks, _ := s.repo.ListRemarks(ctx, orderID)
+	logs := make([]OrderLogResp, len(rawLogs))
+	for i := range rawLogs {
+		logs[i] = toOrderLogResp(&rawLogs[i])
+	}
+	rawRemarks, _ := s.repo.ListRemarks(ctx, orderID)
+	remarks := make([]OrderRemarkResp, len(rawRemarks))
+	for i := range rawRemarks {
+		remarks[i] = toOrderRemarkResp(&rawRemarks[i])
+	}
 	itemResps := make([]OrderItemResp, len(items))
 	for i := range items {
 		itemResps[i] = toOrderItemResp(&items[i])

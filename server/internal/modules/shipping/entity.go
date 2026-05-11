@@ -85,7 +85,46 @@ type SenderAddress struct {
 
 func (SenderAddress) TableName() string { return "sender_address" }
 
-// Carrier 快递公司。
+// SenderAddressResp 发货地址响应 DTO（ID 序列化为字符串）。
+type SenderAddressResp struct {
+	ID           types.Int64Str `json:"id"`
+	Company      *string        `json:"company,omitempty"`
+	Name         string         `json:"name"`
+	Phone        string         `json:"phone"`
+	ProvinceCode *string        `json:"province_code,omitempty"`
+	Province     string         `json:"province"`
+	CityCode     *string        `json:"city_code,omitempty"`
+	City         string         `json:"city"`
+	DistrictCode *string        `json:"district_code,omitempty"`
+	District     string         `json:"district"`
+	StreetCode   *string        `json:"street_code,omitempty"`
+	Street       string         `json:"street"`
+	Detail       string         `json:"detail"`
+	IsDefault    bool           `json:"is_default"`
+	CreatedAt    time.Time      `json:"created_at"`
+	UpdatedAt    time.Time      `json:"updated_at"`
+}
+
+func toSenderAddressResp(a *SenderAddress) SenderAddressResp {
+	return SenderAddressResp{
+		ID:           types.Int64Str(a.ID),
+		Company:      a.Company,
+		Name:         a.Name,
+		Phone:        a.Phone,
+		ProvinceCode: a.ProvinceCode,
+		Province:     a.Province,
+		CityCode:     a.CityCode,
+		City:         a.City,
+		DistrictCode: a.DistrictCode,
+		District:     a.District,
+		StreetCode:   a.StreetCode,
+		Street:       a.Street,
+		Detail:       a.Detail,
+		IsDefault:    a.IsDefault,
+		CreatedAt:    a.CreatedAt,
+		UpdatedAt:    a.UpdatedAt,
+	}
+}
 type Carrier struct {
 	Code           string  `gorm:"primaryKey;size:16"    json:"code"`
 	Name           string  `gorm:"size:32;not null"      json:"name"`

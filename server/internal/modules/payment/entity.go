@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"time"
+
+	"github.com/xushop/xu-shop/internal/pkg/types"
 )
 
 // ---- 状态常量 ----
@@ -137,7 +139,137 @@ type AuditLog struct {
 
 func (AuditLog) TableName() string { return "audit_log" }
 
-// ---- DTO ----
+// ---- 响应 DTO ----
+
+// PaymentResp 支付记录响应 DTO（ID 序列化为字符串）。
+type PaymentResp struct {
+	ID            types.Int64Str  `json:"id"`
+	OrderID       types.Int64Str  `json:"order_id"`
+	Channel       string          `json:"channel"`
+	TradeType     string          `json:"trade_type"`
+	AppID         *string         `json:"app_id,omitempty"`
+	TransactionID *string         `json:"transaction_id,omitempty"`
+	AmountCents   int64           `json:"amount_cents"`
+	Status        string          `json:"status"`
+	PaidAt        *time.Time      `json:"paid_at,omitempty"`
+	CreatedAt     time.Time       `json:"created_at"`
+	UpdatedAt     time.Time       `json:"updated_at"`
+}
+
+func toPaymentResp(p *Payment) PaymentResp {
+	return PaymentResp{
+		ID:            types.Int64Str(p.ID),
+		OrderID:       types.Int64Str(p.OrderID),
+		Channel:       p.Channel,
+		TradeType:     p.TradeType,
+		AppID:         p.AppID,
+		TransactionID: p.TransactionID,
+		AmountCents:   p.AmountCents,
+		Status:        p.Status,
+		PaidAt:        p.PaidAt,
+		CreatedAt:     p.CreatedAt,
+		UpdatedAt:     p.UpdatedAt,
+	}
+}
+
+// RefundResp 退款记录响应 DTO（ID 序列化为字符串）。
+type RefundResp struct {
+	ID          types.Int64Str  `json:"id"`
+	OrderID     types.Int64Str  `json:"order_id"`
+	PaymentID   types.Int64Str  `json:"payment_id"`
+	RefundNo    string          `json:"refund_no"`
+	AmountCents int64           `json:"amount_cents"`
+	Reason      *string         `json:"reason,omitempty"`
+	Status      string          `json:"status"`
+	RefundedAt  *time.Time      `json:"refunded_at,omitempty"`
+	OperatorID  *types.Int64Str `json:"operator_id,omitempty"`
+	CreatedAt   time.Time       `json:"created_at"`
+	UpdatedAt   time.Time       `json:"updated_at"`
+}
+
+func toRefundResp(r *Refund) RefundResp {
+	resp := RefundResp{
+		ID:          types.Int64Str(r.ID),
+		OrderID:     types.Int64Str(r.OrderID),
+		PaymentID:   types.Int64Str(r.PaymentID),
+		RefundNo:    r.RefundNo,
+		AmountCents: r.AmountCents,
+		Reason:      r.Reason,
+		Status:      r.Status,
+		RefundedAt:  r.RefundedAt,
+		CreatedAt:   r.CreatedAt,
+		UpdatedAt:   r.UpdatedAt,
+	}
+	if r.OperatorID != nil {
+		v := types.Int64Str(*r.OperatorID)
+		resp.OperatorID = &v
+	}
+	return resp
+}
+
+// ReconciliationDiffResp 对账差异响应 DTO（ID 序列化为字符串）。
+type ReconciliationDiffResp struct {
+	ID             types.Int64Str  `json:"id"`
+	BillDate       time.Time       `json:"bill_date"`
+	TransactionID  *string         `json:"transaction_id,omitempty"`
+	OrderNo        *string         `json:"order_no,omitempty"`
+	OurAmountCents *int64          `json:"our_amount_cents,omitempty"`
+	WxAmountCents  *int64          `json:"wx_amount_cents,omitempty"`
+	DiffType       *string         `json:"diff_type,omitempty"`
+	Status         string          `json:"status"`
+	ResolvedBy     *types.Int64Str `json:"resolved_by,omitempty"`
+	ResolvedAt     *time.Time      `json:"resolved_at,omitempty"`
+	CreatedAt      time.Time       `json:"created_at"`
+}
+
+func toReconciliationDiffResp(d *ReconciliationDiff) ReconciliationDiffResp {
+	resp := ReconciliationDiffResp{
+		ID:             types.Int64Str(d.ID),
+		BillDate:       d.BillDate,
+		TransactionID:  d.TransactionID,
+		OrderNo:        d.OrderNo,
+		OurAmountCents: d.OurAmountCents,
+		WxAmountCents:  d.WxAmountCents,
+		DiffType:       d.DiffType,
+		Status:         d.Status,
+		ResolvedAt:     d.ResolvedAt,
+		CreatedAt:      d.CreatedAt,
+	}
+	if d.ResolvedBy != nil {
+		v := types.Int64Str(*d.ResolvedBy)
+		resp.ResolvedBy = &v
+	}
+	return resp
+}
+
+// AuditLogResp 操作审计日志响应 DTO（ID 序列化为字符串）。
+type AuditLogResp struct {
+	ID            types.Int64Str `json:"id"`
+	AdminID       types.Int64Str `json:"admin_id"`
+	AdminUsername *string        `json:"admin_username,omitempty"`
+	AdminRealName *string        `json:"admin_real_name,omitempty"`
+	Module        string         `json:"module"`
+	Action        string         `json:"action"`
+	TargetID      *string        `json:"target_id,omitempty"`
+	Diff          RawJSON        `json:"diff,omitempty"`
+	IP            *string        `json:"ip,omitempty"`
+	CreatedAt     time.Time      `json:"created_at"`
+}
+
+func toAuditLogResp(a *AuditLog) AuditLogResp {
+	return AuditLogResp{
+		ID:            types.Int64Str(a.ID),
+		AdminID:       types.Int64Str(a.AdminID),
+		AdminUsername: a.AdminUsername,
+		AdminRealName: a.AdminRealName,
+		Module:        a.Module,
+		Action:        a.Action,
+		TargetID:      a.TargetID,
+		Diff:          a.Diff,
+		IP:            a.IP,
+		CreatedAt:     a.CreatedAt,
+	}
+}
 
 // PayStatusResp C 端查询支付状态响应。
 type PayStatusResp struct {

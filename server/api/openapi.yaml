@@ -81,6 +81,22 @@ components:
           type: string
           example: "550e8400-e29b-41d4-a716-446655440000"
 
+    BaseResp:
+      $ref: '#/components/schemas/Response'
+
+    PagedResult:
+      type: object
+      properties:
+        list:
+          type: array
+          items: {}
+        total:
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer
+
     LinkConfig:
       type: object
       description: 结构化链接配置，用于 Banner / 金刚区图标的跳转目标
@@ -232,6 +248,8 @@ components:
       properties:
         access_token:
           type: string
+        refresh_token:
+          type: string
         expires_in:
           type: integer
           description: 秒
@@ -240,8 +258,7 @@ components:
       type: object
       properties:
         id:
-          type: integer
-          format: int64
+          type: string
         phone:
           type: string
           nullable: true
@@ -264,8 +281,7 @@ components:
       type: object
       properties:
         id:
-          type: integer
-          format: int64
+          type: string
         username:
           type: string
         real_name:
@@ -283,8 +299,7 @@ components:
       type: object
       properties:
         id:
-          type: integer
-          format: int64
+          type: string
         name:
           type: string
         phone:
@@ -340,8 +355,7 @@ components:
       type: object
       properties:
         id:
-          type: integer
-          format: int64
+          type: string
         code:
           type: string
         name:
@@ -566,16 +580,14 @@ components:
           items:
             type: string
         category_id:
-          type: integer
-          format: int64
+          type: string
         unit:
           type: string
           maxLength: 16
         is_virtual:
           type: boolean
         freight_template_id:
-          type: integer
-          format: int64
+          type: string
           nullable: true
         virtual_sales:
           type: integer
@@ -608,6 +620,16 @@ components:
           minItems: 1
           items:
             $ref: '#/components/schemas/SkuInput'
+
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: false
+      schema:
+        type: string
+        format: uuid
+      description: 客户端幂等键，重复提交时服务端返回原始结果
 
 paths:
   # ========== C 端认证 ==========
@@ -645,8 +667,7 @@ paths:
                           expires_in:
                             type: integer
                           user_id:
-                            type: integer
-                            format: int64
+                            type: string
 
   /c/auth/h5/code:
     get:
@@ -696,6 +717,29 @@ paths:
         "302":
           description: 重定向到前端首页，access_token 已设置为 HttpOnly cookie
 
+
+  /c/auth/csrf-token:
+    get:
+      tags: [C端认证]
+      summary: 获取 CSRF token（H5 cookie 模式，双提交 cookie 方案）
+      security:
+        - CookieAuth: []
+      responses:
+        "200":
+          description: CSRF token
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Response"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          csrf_token:
+                            type: string
+
   /c/auth/bind-phone:
     post:
       tags: [C端认证]
@@ -724,10 +768,12 @@ paths:
       tags: [C端认证]
       summary: 刷新 access token（refresh token 一次性）
       requestBody:
+        required: true
         content:
           application/json:
             schema:
               type: object
+              required: [refresh_token]
               properties:
                 refresh_token:
                   type: string
@@ -905,8 +951,7 @@ paths:
           in: path
           required: true
           schema:
-            type: integer
-            format: int64
+            type: string
       responses:
         "200":
           description: 地址详情
@@ -921,8 +966,7 @@ paths:
           in: path
           required: true
           schema:
-            type: integer
-            format: int64
+            type: string
       requestBody:
         content:
           application/json:
@@ -967,8 +1011,7 @@ paths:
           in: path
           required: true
           schema:
-            type: integer
-            format: int64
+            type: string
       responses:
         "200":
           description: 删除成功
@@ -985,8 +1028,7 @@ paths:
           in: path
           required: true
           schema:
-            type: integer
-            format: int64
+            type: string
       responses:
         "200":
           description: 设置成功
@@ -1112,6 +1154,34 @@ paths:
         "200":
           description: 退出成功
 
+
+  /admin/auth/refresh:
+    post:
+      tags: [Admin认证]
+      summary: 刷新管理员 access token（refresh token 一次性）
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refresh_token]
+              properties:
+                refresh_token:
+                  type: string
+      responses:
+        "200":
+          description: 新 token
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Response"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/TokenResp"
+
   /admin/me:
     get:
       tags: [Admin认证]
@@ -1177,8 +1247,7 @@ paths:
                 role_ids:
                   type: array
                   items:
-                    type: integer
-                    format: int64
+                    type: string
       responses:
         "200":
           description: 创建成功
@@ -1194,8 +1263,20 @@ paths:
           in: path
           required: true
           schema:
-            type: integer
-            format: int64
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                real_name: { type: string }
+                phone: { type: string }
+                status: { type: string, enum: [active, disabled] }
+                role_ids:
+                  type: array
+                  items: { type: string }
       responses:
         "200":
           description: 更新成功
@@ -1211,8 +1292,7 @@ paths:
           in: path
           required: true
           schema:
-            type: integer
-            format: int64
+            type: string
       responses:
         "200":
           description: 禁用成功
@@ -1228,8 +1308,7 @@ paths:
           in: path
           required: true
           schema:
-            type: integer
-            format: int64
+            type: string
       requestBody:
         required: true
         content:
@@ -1290,8 +1369,19 @@ paths:
           in: path
           required: true
           schema:
-            type: integer
-            format: int64
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                code: { type: string }
+                name: { type: string }
+                perm_codes:
+                  type: array
+                  items: { type: string }
       responses:
         "200":
           description: 更新成功
@@ -1305,8 +1395,7 @@ paths:
           in: path
           required: true
           schema:
-            type: integer
-            format: int64
+            type: string
       responses:
         "200":
           description: 删除成功
@@ -1343,9 +1432,14 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/CategoryResp"
+                allOf:
+                  - $ref: "#/components/schemas/Response"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/CategoryResp"
 
   /c/products:
     get:
@@ -1360,7 +1454,7 @@ paths:
           schema: { type: integer, default: 20 }
         - name: category_id
           in: query
-          schema: { type: integer, format: int64 }
+          schema: { type: string }
         - name: keyword
           in: query
           schema: { type: string }
@@ -1376,7 +1470,7 @@ paths:
         - name: id
           in: path
           required: true
-          schema: { type: integer, format: int64 }
+          schema: { type: string }
       responses:
         "200":
           description: 商品详情
@@ -1392,7 +1486,7 @@ paths:
         - name: product_id
           in: path
           required: true
-          schema: { type: integer, format: int64 }
+          schema: { type: string }
       responses:
         "200":
           description: 收藏成功
@@ -1406,7 +1500,7 @@ paths:
         - name: product_id
           in: path
           required: true
-          schema: { type: integer, format: int64 }
+          schema: { type: string }
       responses:
         "200":
           description: 取消成功
@@ -1418,6 +1512,13 @@ paths:
       security:
         - BearerAuth: []
         - CookieAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: page_size
+          in: query
+          schema: { type: integer, default: 20 }
       responses:
         "200":
           description: 收藏列表
@@ -1429,6 +1530,13 @@ paths:
       security:
         - BearerAuth: []
         - CookieAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: page_size
+          in: query
+          schema: { type: integer, default: 20 }
       responses:
         "200":
           description: 浏览历史列表
@@ -1482,7 +1590,7 @@ paths:
         - name: id
           in: path
           required: true
-          schema: { type: integer, format: int64 }
+          schema: { type: string }
       requestBody:
         required: true
         content:
@@ -1516,7 +1624,7 @@ paths:
         - name: id
           in: path
           required: true
-          schema: { type: integer, format: int64 }
+          schema: { type: string }
       responses:
         "200":
           description: 删除成功
@@ -1530,7 +1638,7 @@ paths:
       parameters:
         - name: category_id
           in: query
-          schema: { type: integer, format: int64 }
+          schema: { type: string }
         - name: status
           in: query
           schema: { type: string, enum: [draft, onsale, offsale] }
@@ -1600,7 +1708,7 @@ paths:
         - name: id
           in: path
           required: true
-          schema: { type: integer, format: int64 }
+          schema: { type: string }
       responses:
         "200":
           description: 商品详情
@@ -1622,7 +1730,7 @@ paths:
         - name: id
           in: path
           required: true
-          schema: { type: integer, format: int64 }
+          schema: { type: string }
       requestBody:
         required: true
         content:
@@ -1650,7 +1758,7 @@ paths:
         - name: id
           in: path
           required: true
-          schema: { type: integer, format: int64 }
+          schema: { type: string }
       responses:
         "200":
           description: 删除成功
@@ -1665,7 +1773,7 @@ paths:
         - name: id
           in: path
           required: true
-          schema: { type: integer, format: int64 }
+          schema: { type: string }
       responses:
         "200":
           description: 复制成功
@@ -1680,7 +1788,7 @@ paths:
         - name: id
           in: path
           required: true
-          schema: { type: integer, format: int64 }
+          schema: { type: string }
       responses:
         "200":
           description: 上架成功
@@ -1695,7 +1803,7 @@ paths:
         - name: id
           in: path
           required: true
-          schema: { type: integer, format: int64 }
+          schema: { type: string }
       responses:
         "200":
           description: 下架成功
@@ -1716,7 +1824,7 @@ paths:
               properties:
                 ids:
                   type: array
-                  items: { type: integer, format: int64 }
+                  items: { type: string }
                 status: { type: string }
       responses:
         "200":
@@ -1734,6 +1842,20 @@ paths:
           application/json:
             schema:
               type: object
+              required: [updates]
+              properties:
+                updates:
+                  type: array
+                  items:
+                    type: object
+                    required: [sku_id, price_cents]
+                    properties:
+                      sku_id: { type: string }
+                      price_cents: { type: integer, format: int64 }
+                      original_price_cents:
+                        type: integer
+                        format: int64
+                        nullable: true
       responses:
         "200":
           description: 修改成功
@@ -1814,7 +1936,7 @@ paths:
               type: object
               required: [sku_id, qty]
               properties:
-                sku_id: { type: integer, format: int64 }
+                sku_id: { type: string }
                 qty: { type: integer, minimum: 1 }
       responses:
         "200":
@@ -1831,7 +1953,7 @@ paths:
         - name: id
           in: path
           required: true
-          schema: { type: integer, format: int64 }
+          schema: { type: string }
       requestBody:
         required: true
         content:
@@ -1854,7 +1976,7 @@ paths:
         - name: id
           in: path
           required: true
-          schema: { type: integer, format: int64 }
+          schema: { type: string }
       responses:
         "200":
           description: 删除成功
@@ -1876,7 +1998,7 @@ paths:
               properties:
                 ids:
                   type: array
-                  items: { type: integer, format: int64 }
+                  items: { type: string }
       responses:
         "200":
           description: 删除成功
@@ -1920,7 +2042,7 @@ paths:
               properties:
                 cart_ids:
                   type: array
-                  items: { type: integer, format: int64 }
+                  items: { type: string }
       responses:
         "200":
           description: 预检结果
@@ -1933,6 +2055,8 @@ paths:
       security:
         - BearerAuth: []
         - CookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
         required: true
         content:
@@ -1943,8 +2067,8 @@ paths:
               properties:
                 cart_ids:
                   type: array
-                  items: { type: integer, format: int64 }
-                address_id: { type: integer, format: int64 }
+                  items: { type: string }
+                address_id: { type: string }
                 remark: { type: string }
       responses:
         "200":
@@ -1977,7 +2101,7 @@ paths:
         - name: id
           in: path
           required: true
-          schema: { type: integer, format: int64 }
+          schema: { type: string }
       responses:
         "200":
           description: 订单详情
@@ -1993,7 +2117,7 @@ paths:
         - name: id
           in: path
           required: true
-          schema: { type: integer, format: int64 }
+          schema: { type: string }
       responses:
         "200":
           description: 取消成功
@@ -2009,7 +2133,7 @@ paths:
         - name: id
           in: path
           required: true
-          schema: { type: integer, format: int64 }
+          schema: { type: string }
       responses:
         "200":
           description: 撤回成功
@@ -2025,7 +2149,7 @@ paths:
         - name: id
           in: path
           required: true
-          schema: { type: integer, format: int64 }
+          schema: { type: string }
       responses:
         "200":
           description: 确认成功
@@ -2041,7 +2165,7 @@ paths:
         - name: id
           in: path
           required: true
-          schema: { type: integer, format: int64 }
+          schema: { type: string }
       responses:
         "200":
           description: 已加入购物车
@@ -2054,6 +2178,8 @@ paths:
       security:
         - BearerAuth: []
         - CookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
         required: true
         content:
@@ -2062,7 +2188,7 @@ paths:
               type: object
               required: [order_id]
               properties:
-                order_id: { type: integer, format: int64 }
+                order_id: { type: string }
       responses:
         "200":
           description: 预支付参数
@@ -2078,7 +2204,7 @@ paths:
         - name: id
           in: path
           required: true
-          schema: { type: integer, format: int64 }
+          schema: { type: string }
       responses:
         "200":
           description: 支付状态
@@ -2095,7 +2221,7 @@ paths:
         - name: id
           in: path
           required: true
-          schema: { type: integer, format: int64 }
+          schema: { type: string }
       responses:
         "200":
           description: 物流轨迹列表
@@ -2153,7 +2279,7 @@ paths:
         - name: id
           in: path
           required: true
-          schema: { type: integer, format: int64 }
+          schema: { type: string }
       responses:
         "200":
           description: 订单详情
@@ -2164,6 +2290,16 @@ paths:
       summary: 导出订单（需权限 order.export）
       security:
         - BearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status: { type: string }
+                keyword: { type: string }
+                created_from: { type: string, format: date-time }
+                created_to: { type: string, format: date-time }
       responses:
         "200":
           description: 导出任务已创建
@@ -2178,7 +2314,7 @@ paths:
         - name: id
           in: path
           required: true
-          schema: { type: integer, format: int64 }
+          schema: { type: string }
       responses:
         "200":
           description: 取消成功
@@ -2193,7 +2329,7 @@ paths:
         - name: id
           in: path
           required: true
-          schema: { type: integer, format: int64 }
+          schema: { type: string }
       requestBody:
         required: true
         content:
@@ -2215,7 +2351,7 @@ paths:
         - name: id
           in: path
           required: true
-          schema: { type: integer, format: int64 }
+          schema: { type: string }
       responses:
         "200":
           description: 备注列表
@@ -2257,7 +2393,25 @@ paths:
         - name: id
           in: path
           required: true
-          schema: { type: integer, format: int64 }
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                rules:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      region_codes: { type: array, items: { type: string } }
+                      first_weight_g: { type: integer }
+                      first_fee_cents: { type: integer, format: int64 }
+                      added_weight_g: { type: integer }
+                      added_fee_cents: { type: integer, format: int64 }
       responses:
         "200":
           description: 更新成功
@@ -2269,6 +2423,19 @@ paths:
       summary: 查询售后列表（需权限 aftersale.view）
       security:
         - BearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: page_size
+          in: query
+          schema: { type: integer, default: 20 }
+        - name: status
+          in: query
+          schema: { type: string }
+        - name: keyword
+          in: query
+          schema: { type: string }
       responses:
         "200":
           description: 售后列表
@@ -2283,7 +2450,7 @@ paths:
         - name: order_id
           in: path
           required: true
-          schema: { type: integer, format: int64 }
+          schema: { type: string }
       responses:
         "200":
           description: 审批成功
@@ -2298,7 +2465,7 @@ paths:
         - name: order_id
           in: path
           required: true
-          schema: { type: integer, format: int64 }
+          schema: { type: string }
       responses:
         "200":
           description: 拒绝成功
@@ -2314,7 +2481,8 @@ paths:
         - name: id
           in: path
           required: true
-          schema: { type: integer, format: int64 }
+          schema: { type: string }
+        - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
         required: true
         content:
@@ -2335,6 +2503,19 @@ paths:
       summary: 查询支付记录（需权限 payment.view）
       security:
         - BearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: page_size
+          in: query
+          schema: { type: integer, default: 20 }
+        - name: created_from
+          in: query
+          schema: { type: string, format: date }
+        - name: created_to
+          in: query
+          schema: { type: string, format: date }
       responses:
         "200":
           description: 支付记录列表
@@ -2345,6 +2526,19 @@ paths:
       summary: 查询退款记录（需权限 payment.view）
       security:
         - BearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: page_size
+          in: query
+          schema: { type: integer, default: 20 }
+        - name: created_from
+          in: query
+          schema: { type: string, format: date }
+        - name: created_to
+          in: query
+          schema: { type: string, format: date }
       responses:
         "200":
           description: 退款记录列表
@@ -2369,7 +2563,7 @@ paths:
         - name: id
           in: path
           required: true
-          schema: { type: integer, format: int64 }
+          schema: { type: string }
       responses:
         "200":
           description: 处理成功
@@ -2422,7 +2616,7 @@ paths:
         - name: id
           in: path
           required: true
-          schema: { type: integer, format: int64 }
+          schema: { type: string }
       requestBody:
         required: true
         content:
@@ -2453,7 +2647,7 @@ paths:
         - name: id
           in: path
           required: true
-          schema: { type: integer, format: int64 }
+          schema: { type: string }
       responses:
         "200":
           description: 删除成功
@@ -2468,7 +2662,7 @@ paths:
         - name: id
           in: path
           required: true
-          schema: { type: integer, format: int64 }
+          schema: { type: string }
       responses:
         "200":
           description: 设置成功
@@ -2494,6 +2688,17 @@ paths:
           in: path
           required: true
           schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                is_enabled: { type: boolean }
+                api_key: { type: string }
+                extra_config: { type: object, additionalProperties: true }
       responses:
         "200":
           description: 更新成功
@@ -2508,7 +2713,7 @@ paths:
         - name: id
           in: path
           required: true
-          schema: { type: integer, format: int64 }
+          schema: { type: string }
       requestBody:
         required: true
         content:
@@ -2529,6 +2734,23 @@ paths:
       summary: 批量发货（需权限 shipment.batch_ship）
       security:
         - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [orders]
+              properties:
+                orders:
+                  type: array
+                  items:
+                    type: object
+                    required: [order_id, carrier_code, tracking_no]
+                    properties:
+                      order_id: { type: string }
+                      carrier_code: { type: string }
+                      tracking_no: { type: string }
       responses:
         "200":
           description: 批量发货任务已创建
@@ -2583,7 +2805,16 @@ paths:
         - name: id
           in: path
           required: true
-          schema: { type: integer, format: int64 }
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                carrier_code: { type: string }
+                tracking_no: { type: string }
       responses:
         "200":
           description: 更新成功
@@ -2599,7 +2830,7 @@ paths:
         - name: id
           in: path
           required: true
-          schema: { type: integer, format: int64 }
+          schema: { type: string }
       requestBody:
         required: true
         content:
@@ -2644,7 +2875,7 @@ paths:
         - name: id
           in: path
           required: true
-          schema: { type: integer, format: int64 }
+          schema: { type: string }
       responses:
         "200":
           description: 已标记
@@ -2693,6 +2924,16 @@ paths:
       summary: 商品销售排行（需权限 stats.view）
       security:
         - BearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, default: 10 }
+        - name: start_date
+          in: query
+          schema: { type: string, format: date }
+        - name: end_date
+          in: query
+          schema: { type: string, format: date }
       responses:
         "200":
           description: 商品排行数据
@@ -2734,6 +2975,19 @@ paths:
       summary: 查询通知列表（需权限 notif.view）
       security:
         - BearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: page_size
+          in: query
+          schema: { type: integer, default: 20 }
+        - name: type
+          in: query
+          schema: { type: string }
+        - name: is_read
+          in: query
+          schema: { type: boolean }
       responses:
         "200":
           description: 通知列表
@@ -2876,7 +3130,7 @@ paths:
                 type: object
                 required: [id, sort]
                 properties:
-                  id: { type: integer, format: int64 }
+                  id: { type: string }
                   sort: { type: integer }
       responses:
         "200":
@@ -2896,7 +3150,7 @@ paths:
         - name: id
           in: path
           required: true
-          schema: { type: integer, format: int64 }
+          schema: { type: string }
       requestBody:
         required: true
         content:
@@ -2919,7 +3173,7 @@ paths:
         - name: id
           in: path
           required: true
-          schema: { type: integer, format: int64 }
+          schema: { type: string }
       responses:
         "200":
           description: 删除成功
@@ -2938,7 +3192,7 @@ paths:
         - name: id
           in: path
           required: true
-          schema: { type: integer, format: int64 }
+          schema: { type: string }
       responses:
         "200":
           description: 切换成功，返回当前 is_active 值

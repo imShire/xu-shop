@@ -95,15 +95,24 @@ func NewService(
 
 // ---- 发货地址 CRUD ----
 
-func (s *Service) ListSenderAddresses(ctx context.Context) ([]SenderAddress, error) {
-	return s.senderRepo.List(ctx)
+func (s *Service) ListSenderAddresses(ctx context.Context) ([]SenderAddressResp, error) {
+	list, err := s.senderRepo.List(ctx)
+	if err != nil {
+		return nil, errs.ErrInternal
+	}
+	resp := make([]SenderAddressResp, len(list))
+	for i := range list {
+		resp[i] = toSenderAddressResp(&list[i])
+	}
+	return resp, nil
 }
 
-func (s *Service) CreateSenderAddress(ctx context.Context, a *SenderAddress) (*SenderAddress, error) {
+func (s *Service) CreateSenderAddress(ctx context.Context, a *SenderAddress) (*SenderAddressResp, error) {
 	if err := s.senderRepo.Create(ctx, a); err != nil {
 		return nil, errs.ErrInternal
 	}
-	return a, nil
+	r := toSenderAddressResp(a)
+	return &r, nil
 }
 
 func (s *Service) UpdateSenderAddress(ctx context.Context, id int64, req SenderAddress) error {

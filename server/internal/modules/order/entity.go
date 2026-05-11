@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"time"
+
+	pkgtypes "github.com/xushop/xu-shop/internal/pkg/types"
 )
 
 // ---- 状态枚举 ----
@@ -193,3 +195,55 @@ type FreightTemplate struct {
 }
 
 func (FreightTemplate) TableName() string { return "freight_template" }
+
+// ---- 响应 DTO ----
+
+// OrderLogResp 订单日志响应 DTO（ID 序列化为字符串）。
+type OrderLogResp struct {
+	ID           pkgtypes.Int64Str  `json:"id"`
+	OrderID      pkgtypes.Int64Str  `json:"order_id"`
+	FromStatus   *string            `json:"from_status,omitempty"`
+	ToStatus     *string            `json:"to_status,omitempty"`
+	Reason       *string            `json:"reason,omitempty"`
+	OperatorType *string            `json:"operator_type,omitempty"`
+	OperatorID   *pkgtypes.Int64Str `json:"operator_id,omitempty"`
+	CreatedAt    time.Time          `json:"created_at"`
+}
+
+// toOrderLogResp entity → OrderLogResp。
+func toOrderLogResp(l *OrderLog) OrderLogResp {
+	r := OrderLogResp{
+		ID:           pkgtypes.Int64Str(l.ID),
+		OrderID:      pkgtypes.Int64Str(l.OrderID),
+		FromStatus:   l.FromStatus,
+		ToStatus:     l.ToStatus,
+		Reason:       l.Reason,
+		OperatorType: l.OperatorType,
+		CreatedAt:    l.CreatedAt,
+	}
+	if l.OperatorID != nil {
+		v := pkgtypes.Int64Str(*l.OperatorID)
+		r.OperatorID = &v
+	}
+	return r
+}
+
+// OrderRemarkResp 管理员备注响应 DTO（ID 序列化为字符串）。
+type OrderRemarkResp struct {
+	ID        pkgtypes.Int64Str `json:"id"`
+	OrderID   pkgtypes.Int64Str `json:"order_id"`
+	AdminID   pkgtypes.Int64Str `json:"admin_id"`
+	Content   string            `json:"content"`
+	CreatedAt time.Time         `json:"created_at"`
+}
+
+// toOrderRemarkResp entity → OrderRemarkResp。
+func toOrderRemarkResp(r *OrderRemark) OrderRemarkResp {
+	return OrderRemarkResp{
+		ID:        pkgtypes.Int64Str(r.ID),
+		OrderID:   pkgtypes.Int64Str(r.OrderID),
+		AdminID:   pkgtypes.Int64Str(r.AdminID),
+		Content:   r.Content,
+		CreatedAt: r.CreatedAt,
+	}
+}

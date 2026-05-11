@@ -578,39 +578,55 @@ func (s *Service) QueryPayStatus(ctx context.Context, orderID, userID int64) (*P
 // ---- 列表接口 ----
 
 // ListPayments 后台支付列表。
-func (s *Service) ListPayments(ctx context.Context, filter PaymentFilter) ([]Payment, int64, error) {
+func (s *Service) ListPayments(ctx context.Context, filter PaymentFilter) ([]PaymentResp, int64, error) {
 	list, total, err := s.repo.ListPayments(ctx, filter)
 	if err != nil {
 		return nil, 0, errs.ErrInternal
 	}
-	return list, total, nil
+	resp := make([]PaymentResp, len(list))
+	for i := range list {
+		resp[i] = toPaymentResp(&list[i])
+	}
+	return resp, total, nil
 }
 
 // ListRefunds 后台退款列表。
-func (s *Service) ListRefunds(ctx context.Context, orderID int64) ([]Refund, error) {
+func (s *Service) ListRefunds(ctx context.Context, orderID int64) ([]RefundResp, error) {
 	list, err := s.repo.ListRefunds(ctx, orderID)
 	if err != nil {
 		return nil, errs.ErrInternal
 	}
-	return list, nil
+	resp := make([]RefundResp, len(list))
+	for i := range list {
+		resp[i] = toRefundResp(&list[i])
+	}
+	return resp, nil
 }
 
 // ListDiffs 后台对账差异列表。
-func (s *Service) ListDiffs(ctx context.Context, filter DiffFilter) ([]ReconciliationDiff, int64, error) {
+func (s *Service) ListDiffs(ctx context.Context, filter DiffFilter) ([]ReconciliationDiffResp, int64, error) {
 	list, total, err := s.repo.ListDiffs(ctx, filter)
 	if err != nil {
 		return nil, 0, errs.ErrInternal
 	}
-	return list, total, nil
+	resp := make([]ReconciliationDiffResp, len(list))
+	for i := range list {
+		resp[i] = toReconciliationDiffResp(&list[i])
+	}
+	return resp, total, nil
 }
 
 // ListAuditLogs 查询操作审计日志列表。
-func (s *Service) ListAuditLogs(ctx context.Context, filter AuditLogFilter) ([]AuditLog, int64, error) {
+func (s *Service) ListAuditLogs(ctx context.Context, filter AuditLogFilter) ([]AuditLogResp, int64, error) {
 	list, total, err := s.repo.ListAuditLogs(ctx, filter)
 	if err != nil {
 		return nil, 0, errs.ErrInternal
 	}
-	return list, total, nil
+	resp := make([]AuditLogResp, len(list))
+	for i := range list {
+		resp[i] = toAuditLogResp(&list[i])
+	}
+	return resp, total, nil
 }
 
 // ResolveDiff 标记对账差异已处理。
