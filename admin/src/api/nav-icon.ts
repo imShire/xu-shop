@@ -1,4 +1,5 @@
 import request from '@/utils/request'
+import type { LinkConfig } from '@/types/link'
 
 export interface NavIcon {
   id: string
@@ -8,6 +9,7 @@ export interface NavIcon {
   sort: number
   is_active: boolean
   created_at: string
+  link_config?: LinkConfig | null
 }
 
 export interface NavIconForm {
@@ -15,6 +17,7 @@ export interface NavIconForm {
   icon_url: string
   link_url?: string
   sort?: number
+  link_config?: LinkConfig | null
 }
 
 export interface SortItem {

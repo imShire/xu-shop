@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
 import UploadImage from '@/components/UploadImage/index.vue'
+import LinkPicker from '@/components/LinkPicker/index.vue'
+import type { LinkConfig } from '@/types/link'
 import {
   getNavIcons,
   createNavIcon,
@@ -25,14 +27,19 @@ const isEdit = ref(false)
 const saving = ref(false)
 const formRef = ref<FormInstance>()
 
-const defaultForm = (): NavIconForm => ({
+const defaultForm = (): NavIconForm & { link_config: LinkConfig | null } => ({
   title: '',
   icon_url: '',
   link_url: '',
   sort: 0,
+  link_config: null,
 })
 
-const form = ref<NavIconForm & { id?: string }>(defaultForm())
+const form = ref<NavIconForm & { id?: string; link_config: LinkConfig | null }>(defaultForm())
+
+watch(() => form.value.link_config, (val) => {
+  if (val?.url) form.value.link_url = val.url
+})
 
 const previewVisible = ref(false)
 const previewUrl = ref('')
@@ -60,6 +67,7 @@ function openEdit(row: NavIcon) {
     icon_url: row.icon_url,
     link_url: row.link_url,
     sort: row.sort,
+    link_config: row.link_config ? { ...row.link_config } : null,
   }
   isEdit.value = true
   dialogVisible.value = true
@@ -78,6 +86,7 @@ async function handleSave() {
       icon_url: form.value.icon_url,
       link_url: form.value.link_url,
       sort: form.value.sort ?? 0,
+      link_config: form.value.link_config ?? null,
     }
     if (isEdit.value && form.value.id) {
       await updateNavIcon(form.value.id, payload)
@@ -153,12 +162,12 @@ onMounted(loadData)
       <el-table-column prop="title" label="标题" min-width="120" show-overflow-tooltip />
 
       <!-- 跳转链接 -->
-      <el-table-column prop="link_url" label="跳转链接" min-width="200">
+      <el-table-column label="跳转链接" min-width="200">
         <template #default="{ row }">
           <span
             style="display: inline-block; max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: middle"
-            :title="row.link_url"
-          >{{ row.link_url || '—' }}</span>
+            :title="row.link_config?.target_name || row.link_url"
+          >{{ row.link_config?.target_name || row.link_url || '—' }}</span>
         </template>
       </el-table-column>
 
@@ -223,7 +232,10 @@ onMounted(loadData)
           <el-input v-model="form.title" placeholder="请输入标题" maxlength="16" show-word-limit />
         </el-form-item>
         <el-form-item label="跳转链接" prop="link_url">
-          <el-input v-model="form.link_url" placeholder="可选，如 /pages/product/detail?id=1" />
+          <div style="width: 100%">
+            <LinkPicker v-model="form.link_config" style="margin-bottom: 8px" />
+            <el-input v-model="form.link_url" placeholder="可选，如 /pages/product/detail?id=1" />
+          </div>
         </el-form-item>
         <el-form-item label="排序" prop="sort">
           <el-input-number v-model="form.sort" :min="0" :max="9999" style="width: 120px" />

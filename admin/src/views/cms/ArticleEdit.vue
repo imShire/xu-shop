@@ -1,8 +1,11 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, shallowRef, onBeforeUnmount } from 'vue'
+import { Editor, Toolbar } from '@wangeditor/editor-for-vue'
+import '@wangeditor/editor/dist/css/style.css'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { getArticle, createArticle, updateArticle } from '@/api/cms'
+import UploadImage from '@/components/UploadImage/index.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -17,6 +20,11 @@ const form = ref({
   status: 'draft' as 'draft' | 'published',
   sort: 0,
 })
+
+// wangEditor
+const editorRef = shallowRef()
+const editorConfig = { MENU_CONF: {} }
+onBeforeUnmount(() => editorRef.value?.destroy())
 
 onMounted(async () => {
   if (isEdit) {
@@ -68,15 +76,24 @@ async function save() {
         <el-input v-model="form.title" placeholder="请输入文章标题" />
       </el-form-item>
       <el-form-item label="封面">
-        <el-input v-model="form.cover" placeholder="封面图片URL" />
+        <UploadImage v-model="form.cover" />
       </el-form-item>
       <el-form-item label="内容">
-        <el-input
-          v-model="form.content"
-          type="textarea"
-          :rows="15"
-          placeholder="请输入文章内容（HTML 格式）"
-        />
+        <div class="editor-wrapper">
+          <Toolbar
+            :editor="editorRef"
+            :defaultConfig="{}"
+            mode="default"
+            style="border-bottom: 1px solid #ccc"
+          />
+          <Editor
+            v-model="form.content"
+            :defaultConfig="editorConfig"
+            mode="default"
+            style="height: 400px; overflow-y: hidden"
+            @onCreated="(e: any) => (editorRef = e)"
+          />
+        </div>
       </el-form-item>
       <el-form-item label="状态">
         <el-radio-group v-model="form.status">
@@ -94,3 +111,10 @@ async function save() {
     </el-form>
   </div>
 </template>
+
+<style scoped>
+.editor-wrapper {
+  border: 1px solid #ccc;
+  width: 100%;
+}
+</style>

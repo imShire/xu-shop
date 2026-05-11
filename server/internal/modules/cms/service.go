@@ -4,16 +4,24 @@ import (
 	"context"
 	"time"
 
+	"github.com/microcosm-cc/bluemonday"
+
 	"github.com/xushop/xu-shop/internal/pkg/errs"
 )
 
 // Service CMS 文章服务。
 type Service struct {
-	repo ArticleRepo
+	repo   ArticleRepo
+	policy *bluemonday.Policy
 }
 
 // NewService 创建 Service。
-func NewService(repo ArticleRepo) *Service { return &Service{repo: repo} }
+func NewService(repo ArticleRepo) *Service {
+	policy := bluemonday.UGCPolicy()
+	policy.AllowElements("img")
+	policy.AllowAttrs("src", "alt", "width", "height").OnElements("img")
+	return &Service{repo: repo, policy: policy}
+}
 
 // ---- C 端 ----
 
@@ -65,7 +73,7 @@ func (s *Service) Create(ctx context.Context, adminID int64, req UpsertArticleRe
 	a := &Article{
 		Title:     req.Title,
 		Cover:     req.Cover,
-		Content:   req.Content,
+		Content:   s.policy.Sanitize(req.Content),
 		Status:    req.Status,
 		Sort:      req.Sort,
 		CreatedBy: &adminID,
@@ -90,7 +98,7 @@ func (s *Service) Update(ctx context.Context, id int64, req UpsertArticleReq) (*
 	}
 	a.Title = req.Title
 	a.Cover = req.Cover
-	a.Content = req.Content
+	a.Content = s.policy.Sanitize(req.Content)
 	if req.Status != "" {
 		a.Status = req.Status
 	}

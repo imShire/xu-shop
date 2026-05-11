@@ -7,6 +7,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/xushop/xu-shop/internal/pkg/snowflake"
+	"github.com/xushop/xu-shop/internal/pkg/types"
 )
 
 // NavIconRepo 金刚区图标数据访问接口。
@@ -49,7 +50,7 @@ func (r *navIconRepoImpl) FindByID(ctx context.Context, id int64) (*NavIcon, err
 }
 
 func (r *navIconRepoImpl) Create(ctx context.Context, n *NavIcon) error {
-	n.ID = snowflake.NextID()
+	n.ID = types.Int64Str(snowflake.NextID())
 	return r.db.WithContext(ctx).Create(n).Error
 }
 

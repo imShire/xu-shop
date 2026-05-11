@@ -81,13 +81,38 @@ components:
           type: string
           example: "550e8400-e29b-41d4-a716-446655440000"
 
+    LinkConfig:
+      type: object
+      description: 结构化链接配置，用于 Banner / 金刚区图标的跳转目标
+      required: [type, url]
+      properties:
+        type:
+          type: string
+          enum: [product, category, article, product_list, custom]
+          description: 链接类型
+        target_id:
+          type: string
+          nullable: true
+          description: 目标资源 ID（product/category/article 时有值，其余为空）
+        target_name:
+          type: string
+          nullable: true
+          description: 回显用名称，picker 选中后显示
+        url:
+          type: string
+          description: 最终跳转路径，同步写入 link_url 字段
+
     Banner:
       type: object
       properties:
-        id: { type: integer, format: int64 }
+        id: { type: string, description: "Int64 as string，防止 JS BigInt 精度丢失" }
         title: { type: string }
         image_url: { type: string }
         link_url: { type: string }
+        link_config:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/LinkConfig'
         sort: { type: integer }
         is_active: { type: boolean }
         created_at: { type: string, format: date-time }
@@ -99,6 +124,10 @@ components:
         title: { type: string }
         image_url: { type: string }
         link_url: { type: string }
+        link_config:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/LinkConfig'
         sort: { type: integer }
 
     NavIcon:
@@ -110,6 +139,10 @@ components:
         title: { type: string }
         icon_url: { type: string }
         link_url: { type: string }
+        link_config:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/LinkConfig'
         sort: { type: integer }
         is_active: { type: boolean }
         created_at: { type: string, format: date-time }
@@ -121,6 +154,10 @@ components:
         title: { type: string }
         icon_url: { type: string }
         link_url: { type: string }
+        link_config:
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/LinkConfig'
         sort: { type: integer }
         is_active: { type: boolean }
 

@@ -42,12 +42,17 @@ func (s *Service) Create(ctx context.Context, req CreateBannerReq) (*Banner, err
 	if req.IsActive != nil {
 		isActive = *req.IsActive
 	}
+	linkURL := req.LinkURL
+	if req.LinkConfig != nil && req.LinkConfig.URL != "" {
+		linkURL = req.LinkConfig.URL
+	}
 	b := &Banner{
-		Title:    req.Title,
-		ImageURL: req.ImageURL,
-		LinkURL:  req.LinkURL,
-		Sort:     req.Sort,
-		IsActive: isActive,
+		Title:      req.Title,
+		ImageURL:   req.ImageURL,
+		LinkURL:    linkURL,
+		LinkConfig: req.LinkConfig,
+		Sort:       req.Sort,
+		IsActive:   isActive,
 	}
 	if err := s.repo.Create(ctx, b); err != nil {
 		return nil, errs.ErrInternal
@@ -64,9 +69,14 @@ func (s *Service) Update(ctx context.Context, id int64, req UpdateBannerReq) (*B
 		}
 		return nil, errs.ErrInternal
 	}
+	linkURL := req.LinkURL
+	if req.LinkConfig != nil && req.LinkConfig.URL != "" {
+		linkURL = req.LinkConfig.URL
+	}
 	b.Title = req.Title
 	b.ImageURL = req.ImageURL
-	b.LinkURL = req.LinkURL
+	b.LinkURL = linkURL
+	b.LinkConfig = req.LinkConfig
 	b.Sort = req.Sort
 	if req.IsActive != nil {
 		b.IsActive = *req.IsActive

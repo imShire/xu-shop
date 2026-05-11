@@ -42,12 +42,17 @@ func (s *Service) Create(ctx context.Context, req CreateNavIconReq) (*NavIcon, e
 	if req.IsActive != nil {
 		isActive = *req.IsActive
 	}
+	linkURL := req.LinkURL
+	if req.LinkConfig != nil && req.LinkConfig.URL != "" {
+		linkURL = req.LinkConfig.URL
+	}
 	n := &NavIcon{
-		Title:    req.Title,
-		IconURL:  req.IconURL,
-		LinkURL:  req.LinkURL,
-		Sort:     req.Sort,
-		IsActive: isActive,
+		Title:      req.Title,
+		IconURL:    req.IconURL,
+		LinkURL:    linkURL,
+		LinkConfig: req.LinkConfig,
+		Sort:       req.Sort,
+		IsActive:   isActive,
 	}
 	if err := s.repo.Create(ctx, n); err != nil {
 		return nil, errs.ErrInternal
@@ -64,9 +69,14 @@ func (s *Service) Update(ctx context.Context, id int64, req UpdateNavIconReq) (*
 		}
 		return nil, errs.ErrInternal
 	}
+	linkURL := req.LinkURL
+	if req.LinkConfig != nil && req.LinkConfig.URL != "" {
+		linkURL = req.LinkConfig.URL
+	}
 	n.Title = req.Title
 	n.IconURL = req.IconURL
-	n.LinkURL = req.LinkURL
+	n.LinkURL = linkURL
+	n.LinkConfig = req.LinkConfig
 	n.Sort = req.Sort
 	if req.IsActive != nil {
 		n.IsActive = *req.IsActive

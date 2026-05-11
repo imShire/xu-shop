@@ -7,6 +7,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/xushop/xu-shop/internal/pkg/snowflake"
+	"github.com/xushop/xu-shop/internal/pkg/types"
 )
 
 // BannerRepo 横幅数据访问接口。
@@ -49,7 +50,7 @@ func (r *bannerRepoImpl) FindByID(ctx context.Context, id int64) (*Banner, error
 }
 
 func (r *bannerRepoImpl) Create(ctx context.Context, b *Banner) error {
-	b.ID = snowflake.NextID()
+	b.ID = types.Int64Str(snowflake.NextID())
 	return r.db.WithContext(ctx).Create(b).Error
 }
 
