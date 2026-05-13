@@ -42,6 +42,10 @@ type OrderAccessor interface {
 	SetPrepayID(ctx context.Context, orderID int64, prepayID string, expireAt time.Time) error
 	// Transition 触发订单状态机变更。
 	Transition(ctx context.Context, orderID int64, trigger, opType string, opID int64, reason string) error
+	// TransitionInTx 在外部事务 tx 内触发状态机变更（与 MarkSuccessTx 保持原子）。
+	TransitionInTx(ctx context.Context, tx *gorm.DB, orderID int64, trigger, opType string, opID int64, reason string) error
+	// DeductStock 支付成功后扣减库存（释放 Redis 锁 + DB 实扣）。
+	DeductStock(ctx context.Context, orderID int64, orderNo string)
 	// DB 返回 gorm.DB（用于事务）。
 	DB() *gorm.DB
 }
@@ -227,12 +231,27 @@ func (s *Service) HandleWxpayNotify(ctx context.Context, body []byte, headers ma
 		return errs.ErrParam.WithMsg("回调签名校验失败")
 	}
 
-	// 2. 加载订单（SELECT FOR UPDATE）
-	var orderID int64
-	var orderPayCents int64
-	var orderStatus string
+	paidAt := time.Now()
+	if result.PaidAt != nil {
+		paidAt = *result.PaidAt
+	}
 
-	err = s.orderDB.DB().WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	// 2-5. 单事务：锁订单行 + 幂等 upsert + 金额校验 + 状态迁移（MarkSuccess & Transition 原子）
+	var (
+		pmtID            int64
+		pmtIsNew         bool
+		shouldAutoRefund bool
+		autoRefundReason string
+		autoRefundOrderID int64
+		autoRefundAmt    int64
+		autoRefundOrderNo string
+		shouldDeductStock bool
+		deductOrderID    int64
+		deductOrderNo    string
+	)
+
+	txErr := s.orderDB.DB().WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// 2. 锁订单行
 		var o struct {
 			ID       int64  `gorm:"column:id"`
 			PayCents int64  `gorm:"column:pay_cents"`
@@ -245,46 +264,91 @@ func (s *Service) HandleWxpayNotify(ctx context.Context, body []byte, headers ma
 			First(&o).Error; err != nil {
 			return err
 		}
-		orderID = o.ID
-		orderPayCents = o.PayCents
-		orderStatus = o.Status
-		return nil
+
+		// 3. 幂等 UpsertByTxn
+		pmt, isNew, upsertErr := s.repo.UpsertByTxn(ctx, result.TransactionID, result.OutTradeNo, o.ID, result.AmtCents, result.Raw)
+		if upsertErr != nil {
+			return upsertErr
+		}
+		pmtID = pmt.ID
+		pmtIsNew = isNew
+		if !isNew {
+			return nil // 已处理，幂等
+		}
+
+		// 4. 金额校验
+		if result.AmtCents != o.PayCents {
+			logger.Ctx(ctx).Warn("wxpay notify: amount mismatch",
+				zap.String("order_no", result.OutTradeNo),
+				zap.Int64("expect", o.PayCents), zap.Int64("actual", result.AmtCents))
+			if err := s.repo.MarkSuccessTx(ctx, tx, pmt.ID, result.Raw, paidAt); err != nil {
+				return err
+			}
+			if err := s.repo.MarkOrphanTx(ctx, tx, pmt.ID); err != nil {
+				return err
+			}
+			shouldAutoRefund = true
+			autoRefundReason = "支付金额与订单金额不一致，自动原路退款"
+			autoRefundOrderID = o.ID
+			autoRefundAmt = result.AmtCents
+			autoRefundOrderNo = result.OutTradeNo
+			return nil
+		}
+
+		// 5. 状态分支
+		switch o.Status {
+		case "paid":
+			// 已付款，幂等标记
+			return s.repo.MarkSuccessTx(ctx, tx, pmt.ID, result.Raw, paidAt)
+		case "cancelled":
+			// 订单已取消但微信侧已扣款 → 标记并原路退款
+			if err := s.repo.MarkSuccessTx(ctx, tx, pmt.ID, result.Raw, paidAt); err != nil {
+				return err
+			}
+			shouldAutoRefund = true
+			autoRefundReason = "订单已取消，自动原路退款"
+			autoRefundOrderID = o.ID
+			autoRefundAmt = result.AmtCents
+			autoRefundOrderNo = result.OutTradeNo
+			return nil
+		case "pending":
+			// 正常支付成功路径：MarkSuccess + Transition 原子
+			if err := s.repo.MarkSuccessTx(ctx, tx, pmt.ID, result.Raw, paidAt); err != nil {
+				return err
+			}
+			if err := s.orderDB.TransitionInTx(ctx, tx, o.ID, "pay_success", "system", 0, "微信支付成功"); err != nil {
+				return err
+			}
+			shouldDeductStock = true
+			deductOrderID = o.ID
+			deductOrderNo = result.OutTradeNo
+			return nil
+		default:
+			logger.Ctx(ctx).Warn("wxpay notify: unexpected order status",
+				zap.String("status", o.Status), zap.String("order_no", result.OutTradeNo))
+			return nil
+		}
 	})
-	if err != nil {
-		logger.Ctx(ctx).Error("wxpay notify: find order failed",
-			zap.String("order_no", result.OutTradeNo), zap.Error(err))
+	if txErr != nil {
+		logger.Ctx(ctx).Error("wxpay notify: transaction failed",
+			zap.String("order_no", result.OutTradeNo), zap.Error(txErr))
 		return errs.ErrInternal
 	}
 
-	// 3. 幂等：UpsertByTxn
-	pmt, isNew, err := s.repo.UpsertByTxn(ctx, result.TransactionID, result.OutTradeNo, orderID, result.AmtCents, result.Raw)
-	if err != nil {
-		logger.Ctx(ctx).Error("wxpay notify: upsert payment failed", zap.Error(err))
-		return errs.ErrInternal
-	}
-	if !isNew {
-		// 已处理，幂等返回
+	if !pmtIsNew {
 		logger.Ctx(ctx).Info("wxpay notify: duplicate, skip", zap.String("txn_id", result.TransactionID))
 		return nil
 	}
 
-	// 4. 金额校验
-	if result.AmtCents != orderPayCents {
-		paidAt := time.Now()
-		if result.PaidAt != nil {
-			paidAt = *result.PaidAt
-		}
-		_ = s.repo.MarkSuccess(ctx, pmt.ID, result.Raw, paidAt)
-		_ = s.repo.MarkOrphan(ctx, pmt.ID)
-
-		// 自动入队退款任务
+	// 事务后副作用
+	if shouldAutoRefund {
 		payload, _ := json.Marshal(map[string]any{
-			"payment_id":  pmt.ID,
-			"order_id":    orderID,
-			"order_no":    result.OutTradeNo,
-			"amount":      result.AmtCents,
-			"total_cents": result.AmtCents,
-			"reason":      "支付金额与订单金额不一致，自动原路退款",
+			"payment_id":  pmtID,
+			"order_id":    autoRefundOrderID,
+			"order_no":    autoRefundOrderNo,
+			"amount":      autoRefundAmt,
+			"total_cents": autoRefundAmt,
+			"reason":      autoRefundReason,
 		})
 		if s.enqueuer != nil {
 			task := asynq.NewTask(TaskPaymentAutoRefund, payload)
@@ -292,31 +356,12 @@ func (s *Service) HandleWxpayNotify(ctx context.Context, body []byte, headers ma
 				logger.Ctx(ctx).Error("enqueue auto_refund failed", zap.Error(enqErr))
 			}
 		}
-		logger.Ctx(ctx).Warn("wxpay notify: amount mismatch, auto refund enqueued",
-			zap.String("order_no", result.OutTradeNo),
-			zap.Int64("expect", orderPayCents), zap.Int64("actual", result.AmtCents))
-		return nil
+		logger.Ctx(ctx).Warn("wxpay notify: auto refund enqueued",
+			zap.String("order_no", autoRefundOrderNo), zap.String("reason", autoRefundReason))
 	}
 
-	// 5. 状态分支
-	if orderStatus != "pending" {
-		logger.Ctx(ctx).Info("wxpay notify: order not pending, skip transition",
-			zap.String("status", orderStatus))
-		return nil
-	}
-
-	paidAt := time.Now()
-	if result.PaidAt != nil {
-		paidAt = *result.PaidAt
-	}
-	if err := s.repo.MarkSuccess(ctx, pmt.ID, result.Raw, paidAt); err != nil {
-		logger.Ctx(ctx).Error("mark payment success failed", zap.Error(err))
-	}
-
-	if err := s.orderDB.Transition(ctx, orderID, "pay_success", "system", 0, "微信支付成功"); err != nil {
-		logger.Ctx(ctx).Error("order transition pay_success failed",
-			zap.Int64("order_id", orderID), zap.Error(err))
-		return errs.ErrInternal
+	if shouldDeductStock {
+		s.orderDB.DeductStock(ctx, deductOrderID, deductOrderNo)
 	}
 
 	logger.Ctx(ctx).Info("wxpay notify: success", zap.String("txn_id", result.TransactionID))
@@ -329,11 +374,29 @@ func (s *Service) HandleWxpayNotify(ctx context.Context, body []byte, headers ma
 // 适用于 periodic job 主动轮询，跳过签名校验（已由 wxpay.Client 保证调用安全）。
 // 幂等：若 payment 记录已存在（UpsertByTxn 返回 isNew=false），直接返回 nil。
 func (s *Service) HandleQuerySuccess(ctx context.Context, orderNo, transactionID string, amtCents int64, paidAt *time.Time) error {
-	// 1. 加载订单（SELECT FOR UPDATE）
-	var orderID, orderPayCents int64
-	var orderStatus string
+	effectivePaidAt := time.Now()
+	if paidAt != nil {
+		effectivePaidAt = *paidAt
+	}
 
-	err := s.orderDB.DB().WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	raw, _ := json.Marshal(map[string]any{
+		"transaction_id": transactionID,
+		"out_trade_no":   orderNo,
+		"amount_cents":   amtCents,
+		"source":         "active_query",
+	})
+
+	var (
+		pmtIsNew         bool
+		pmtID            int64
+		shouldAutoRefund bool
+		autoRefundReason string
+		autoRefundOrderID int64
+		shouldDeductStock bool
+		deductOrderID    int64
+	)
+
+	txErr := s.orderDB.DB().WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var o struct {
 			ID       int64  `gorm:"column:id"`
 			PayCents int64  `gorm:"column:pay_cents"`
@@ -346,50 +409,65 @@ func (s *Service) HandleQuerySuccess(ctx context.Context, orderNo, transactionID
 			First(&o).Error; err != nil {
 			return err
 		}
-		orderID = o.ID
-		orderPayCents = o.PayCents
-		orderStatus = o.Status
+
+		pmt, isNew, upsertErr := s.repo.UpsertByTxn(ctx, transactionID, orderNo, o.ID, amtCents, raw)
+		if upsertErr != nil {
+			return upsertErr
+		}
+		pmtID = pmt.ID
+		pmtIsNew = isNew
+		if !isNew {
+			return nil
+		}
+
+		// 金额校验
+		if amtCents != o.PayCents {
+			if err := s.repo.MarkSuccessTx(ctx, tx, pmt.ID, raw, effectivePaidAt); err != nil {
+				return err
+			}
+			if err := s.repo.MarkOrphanTx(ctx, tx, pmt.ID); err != nil {
+				return err
+			}
+			shouldAutoRefund = true
+			autoRefundReason = "主动查单：支付金额与订单金额不一致，自动原路退款"
+			autoRefundOrderID = o.ID
+			return nil
+		}
+
+		if o.Status != "pending" {
+			return nil
+		}
+
+		// MarkSuccess + Transition 原子
+		if err := s.repo.MarkSuccessTx(ctx, tx, pmt.ID, raw, effectivePaidAt); err != nil {
+			return err
+		}
+		if err := s.orderDB.TransitionInTx(ctx, tx, o.ID, "pay_success", "system", 0, "主动查单补单成功"); err != nil {
+			return err
+		}
+		shouldDeductStock = true
+		deductOrderID = o.ID
 		return nil
 	})
-	if err != nil {
-		logger.Ctx(ctx).Error("active_query: find order failed",
-			zap.String("order_no", orderNo), zap.Error(err))
+	if txErr != nil {
+		logger.Ctx(ctx).Error("active_query: transaction failed",
+			zap.String("order_no", orderNo), zap.Error(txErr))
 		return errs.ErrInternal
 	}
 
-	// 2. 幂等 upsert（以 transaction_id 为唯一键）
-	raw, _ := json.Marshal(map[string]any{
-		"transaction_id": transactionID,
-		"out_trade_no":   orderNo,
-		"amount_cents":   amtCents,
-		"source":         "active_query",
-	})
-	pmt, isNew, err := s.repo.UpsertByTxn(ctx, transactionID, orderNo, orderID, amtCents, raw)
-	if err != nil {
-		logger.Ctx(ctx).Error("active_query: upsert payment failed", zap.Error(err))
-		return errs.ErrInternal
-	}
-	if !isNew {
+	if !pmtIsNew {
 		logger.Ctx(ctx).Info("active_query: already processed, skip", zap.String("txn_id", transactionID))
 		return nil
 	}
 
-	// 3. 金额校验
-	if amtCents != orderPayCents {
-		effectivePaidAt := time.Now()
-		if paidAt != nil {
-			effectivePaidAt = *paidAt
-		}
-		_ = s.repo.MarkSuccess(ctx, pmt.ID, raw, effectivePaidAt)
-		_ = s.repo.MarkOrphan(ctx, pmt.ID)
-
+	if shouldAutoRefund {
 		payload, _ := json.Marshal(map[string]any{
-			"payment_id":  pmt.ID,
-			"order_id":    orderID,
+			"payment_id":  pmtID,
+			"order_id":    autoRefundOrderID,
 			"order_no":    orderNo,
 			"amount":      amtCents,
 			"total_cents": amtCents,
-			"reason":      "主动查单：支付金额与订单金额不一致，自动原路退款",
+			"reason":      autoRefundReason,
 		})
 		if s.enqueuer != nil {
 			task := asynq.NewTask(TaskPaymentAutoRefund, payload)
@@ -398,33 +476,15 @@ func (s *Service) HandleQuerySuccess(ctx context.Context, orderNo, transactionID
 			}
 		}
 		logger.Ctx(ctx).Warn("active_query: amount mismatch, auto refund enqueued",
-			zap.String("order_no", orderNo),
-			zap.Int64("expect", orderPayCents), zap.Int64("actual", amtCents))
+			zap.String("order_no", orderNo))
 		return nil
 	}
 
-	// 4. 幂等：非 pending 直接跳过
-	if orderStatus != "pending" {
-		logger.Ctx(ctx).Info("active_query: order not pending, skip",
-			zap.String("order_no", orderNo), zap.String("status", orderStatus))
-		return nil
+	if shouldDeductStock {
+		s.orderDB.DeductStock(ctx, deductOrderID, orderNo)
 	}
 
-	// 5. 标记支付成功 + 触发状态机
-	effectivePaidAt := time.Now()
-	if paidAt != nil {
-		effectivePaidAt = *paidAt
-	}
-	if err := s.repo.MarkSuccess(ctx, pmt.ID, raw, effectivePaidAt); err != nil {
-		logger.Ctx(ctx).Error("active_query: mark payment success failed", zap.Error(err))
-	}
-	if err := s.orderDB.Transition(ctx, orderID, "pay_success", "system", 0, "主动查单补单成功"); err != nil {
-		logger.Ctx(ctx).Error("active_query: order transition pay_success failed",
-			zap.Int64("order_id", orderID), zap.Error(err))
-		return errs.ErrInternal
-	}
-
-	logger.Ctx(ctx).Info("active_query:补单成功", zap.String("txn_id", transactionID), zap.String("order_no", orderNo))
+	logger.Ctx(ctx).Info("active_query: 补单成功", zap.String("txn_id", transactionID), zap.String("order_no", orderNo))
 	return nil
 }
 

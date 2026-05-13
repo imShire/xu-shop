@@ -99,6 +99,23 @@ func (m *mockPaymentRepo) MarkOrphan(_ context.Context, id int64) error {
 	return nil
 }
 
+func (m *mockPaymentRepo) MarkSuccessTx(_ context.Context, _ *gorm.DB, id int64, raw []byte, paidAt time.Time) error {
+	if p, ok := m.payments[id]; ok {
+		p.Status = PayStatusSuccess
+		now := paidAt
+		p.PaidAt = &now
+		p.RawNotify = rawNotifyFromBytes(raw)
+	}
+	return nil
+}
+
+func (m *mockPaymentRepo) MarkOrphanTx(_ context.Context, _ *gorm.DB, id int64) error {
+	if p, ok := m.payments[id]; ok {
+		p.Status = PayStatusOrphan
+	}
+	return nil
+}
+
 func (m *mockPaymentRepo) CreatePayment(_ context.Context, p *Payment) error {
 	if p.ID == 0 {
 		p.ID = m.nextID()
@@ -235,6 +252,13 @@ func (m *mockOrderAccessor) Transition(_ context.Context, _ int64, trigger, _ st
 	m.transitions = append(m.transitions, trigger)
 	return nil
 }
+
+func (m *mockOrderAccessor) TransitionInTx(_ context.Context, _ *gorm.DB, _ int64, trigger, _ string, _ int64, _ string) error {
+	m.transitions = append(m.transitions, trigger)
+	return nil
+}
+
+func (m *mockOrderAccessor) DeductStock(_ context.Context, _ int64, _ string) {}
 
 // ---- mock UserOpenidGetter ----
 

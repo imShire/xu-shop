@@ -29,6 +29,9 @@ type UserRepo interface {
 	GetBalance(ctx context.Context, userID int64) (int64, error)
 	RechargeBalance(ctx context.Context, userID int64, amountCents int64, operatorID int64, remark string) error
 	DeductBalance(ctx context.Context, userID int64, amountCents int64, refType string, refID int64, remark string) error
+	// DeductBalanceTx 在外部事务 tx 中原子扣减余额（最多 maxCents），返回实际扣减金额。
+	// 余额不足时部分扣减；DB 错误时返回 error。
+	DeductBalanceTx(ctx context.Context, tx *gorm.DB, userID, maxCents int64, refType string, refID int64, remark string) (int64, error)
 	RefundBalance(ctx context.Context, userID int64, amountCents int64, refType string, refID int64, remark string) error
 	ListBalanceLogs(ctx context.Context, userID int64, page, size int) ([]BalanceLog, int64, error)
 }
@@ -258,6 +261,49 @@ func (r *userRepoImpl) DeductBalance(ctx context.Context, userID int64, amountCe
 		}
 		return tx.Create(bl).Error
 	})
+}
+
+// DeductBalanceTx 在外部事务 tx 中原子扣减余额（最多 maxCents），返回实际扣减金额。
+// 余额为 0 时返回 0, nil；DB 错误时返回 0, err。
+func (r *userRepoImpl) DeductBalanceTx(ctx context.Context, tx *gorm.DB, userID, maxCents int64, refType string, refID int64, remark string) (int64, error) {
+	var u User
+	if err := tx.WithContext(ctx).Clauses(clause.Locking{Strength: "UPDATE"}).
+		Select("id, balance_cents").First(&u, userID).Error; err != nil {
+		return 0, err
+	}
+	if u.BalanceCents <= 0 {
+		return 0, nil
+	}
+	deducted := maxCents
+	if u.BalanceCents < maxCents {
+		deducted = u.BalanceCents
+	}
+	newBalance := u.BalanceCents - deducted
+	res := tx.WithContext(ctx).Model(&User{}).
+		Where("id = ? AND balance_cents >= ?", userID, deducted).
+		Update("balance_cents", newBalance)
+	if res.Error != nil {
+		return 0, res.Error
+	}
+	if res.RowsAffected == 0 {
+		return 0, errs.ErrParam.WithMsg("余额扣减并发冲突，请重试")
+	}
+	var refIDPtr *int64
+	if refID > 0 {
+		refIDPtr = &refID
+	}
+	bl := &BalanceLog{
+		ID:                 snowflake.NextID(),
+		UserID:             userID,
+		ChangeCents:        -deducted,
+		Type:               "spend",
+		RefType:            refType,
+		RefID:              refIDPtr,
+		BalanceBeforeCents: u.BalanceCents,
+		BalanceAfterCents:  newBalance,
+		Remark:             remark,
+	}
+	return deducted, tx.WithContext(ctx).Create(bl).Error
 }
 
 // RefundBalance 退款到余额（原子递增 + 流水）。

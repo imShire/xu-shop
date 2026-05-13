@@ -52,7 +52,7 @@ func main() {
 	stockClient := stock.New(app.Redis)
 	orderRepo := order.NewOrderRepo(app.DB)
 	userRepo := account.NewUserRepo(app.DB)
-	orderSvc := order.NewService(orderRepo, skuRepo, productRepo, invRepo, addrRepo, stockClient, app.Redis, app.AsynqClient, userRepo)
+	orderSvc := order.NewService(orderRepo, skuRepo, productRepo, invRepo, addrRepo, stockClient, app.Redis, app.AsynqClient, userRepo, nil)
 
 	// 微信支付客户端
 	var wxpayClient pkgwxpay.Client
@@ -194,6 +194,10 @@ func (a *orderCloseAdapter) ReleaseStock(ctx context.Context, orderID int64, ord
 	a.svc.ReleaseStock(ctx, orderID, orderNo)
 }
 
+func (a *orderCloseAdapter) RefundUserBalance(ctx context.Context, orderID int64) error {
+	return a.svc.RefundUserBalance(ctx, orderID)
+}
+
 type orderConfirmAdapter struct{ svc *order.Service }
 
 func (a *orderConfirmAdapter) GetRaw(ctx context.Context, orderID int64) (jobs.OrderInfo, error) {
@@ -263,6 +267,14 @@ func (a *workerOrderAccessorAdapter) SetPrepayID(ctx context.Context, orderID in
 func (a *workerOrderAccessorAdapter) Transition(ctx context.Context, orderID int64, trigger, opType string, opID int64, reason string) error {
 	_, err := a.svc.Transition(ctx, orderID, trigger, opType, opID, reason)
 	return err
+}
+
+func (a *workerOrderAccessorAdapter) TransitionInTx(ctx context.Context, tx *gorm.DB, orderID int64, trigger, opType string, opID int64, reason string) error {
+	return a.svc.TransitionInTx(ctx, tx, orderID, trigger, opType, opID, reason)
+}
+
+func (a *workerOrderAccessorAdapter) DeductStock(ctx context.Context, orderID int64, orderNo string) {
+	a.svc.DeductStock(ctx, orderID, orderNo)
 }
 
 type workerShipOrderAccessor struct{ svc *order.Service }

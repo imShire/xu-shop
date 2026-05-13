@@ -28,6 +28,8 @@ type OrderCloser interface {
 	Transition(ctx context.Context, orderID int64, trigger, operatorType string, operatorID int64, reason string) error
 	// ReleaseStock 释放库存。
 	ReleaseStock(ctx context.Context, orderID int64, orderNo string)
+	// RefundUserBalance 退还订单余额（订单已扣余额时调用）。
+	RefundUserBalance(ctx context.Context, orderID int64) error
 }
 
 // OrderInfo 订单关键信息（供 job 使用）。
@@ -73,6 +75,12 @@ func handleOrderClose(ctx context.Context, orderID int64, svc OrderCloser) error
 
 	// 释放 Redis + DB 库存锁
 	svc.ReleaseStock(ctx, orderID, info.OrderNo)
+
+	// 退还已扣余额（如有）
+	if err := svc.RefundUserBalance(ctx, orderID); err != nil {
+		logger.L().Error("order:close refund balance failed", zap.Int64("order_id", orderID), zap.Error(err))
+	}
+
 	logger.L().Info("order:close done", zap.Int64("order_id", orderID))
 	return nil
 }

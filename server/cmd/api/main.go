@@ -197,7 +197,7 @@ func main() {
 
 		// order 模块
 		orderRepo := order.NewOrderRepo(app.DB)
-		orderSvc := order.NewService(orderRepo, skuRepo, productRepo, invRepo, addrRepo, stockClient, app.Redis, app.AsynqClient, accountUserRepo)
+		orderSvc := order.NewService(orderRepo, skuRepo, productRepo, invRepo, addrRepo, stockClient, app.Redis, app.AsynqClient, accountUserRepo, cartRepo)
 		orderHandler := order.NewHandler(orderSvc)
 		order.RegisterRoutes(v1, orderHandler, app.Redis, app.DB, jwtCfg)
 
@@ -359,6 +359,14 @@ func (a *orderAccessorAdapter) SetPrepayID(ctx context.Context, orderID int64, p
 func (a *orderAccessorAdapter) Transition(ctx context.Context, orderID int64, trigger, opType string, opID int64, reason string) error {
 	_, err := a.svc.Transition(ctx, orderID, trigger, opType, opID, reason)
 	return err
+}
+
+func (a *orderAccessorAdapter) TransitionInTx(ctx context.Context, tx *gorm.DB, orderID int64, trigger, opType string, opID int64, reason string) error {
+	return a.svc.TransitionInTx(ctx, tx, orderID, trigger, opType, opID, reason)
+}
+
+func (a *orderAccessorAdapter) DeductStock(ctx context.Context, orderID int64, orderNo string) {
+	a.svc.DeductStock(ctx, orderID, orderNo)
 }
 
 func orderToPaySnapshot(o *order.Order) *payment.OrderSnapshot {

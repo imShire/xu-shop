@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/rand"
+	"strconv"
 	"strings"
 	"time"
 
@@ -73,12 +74,13 @@ func findTransition(from, trigger, preferTo string) *transition {
 
 // CreateOrderReq 下单请求。
 type CreateOrderReq struct {
-	AddressID         pkgtypes.Int64Str  `json:"address_id"          binding:"required"`
-	Items             []OrderItemReq     `json:"items"               binding:"required,min=1"`
-	BuyerRemark       string             `json:"buyer_remark"`
-	IdempotencyKey    string             `json:"idempotency_key"`
-	FreightTemplateID *pkgtypes.Int64Str `json:"freight_template_id"`
-	UseBalance        bool               `json:"use_balance"`
+	AddressID          pkgtypes.Int64Str   `json:"address_id"           binding:"required"`
+	Items              []OrderItemReq      `json:"items"                binding:"required,min=1"`
+	BuyerRemark        string              `json:"buyer_remark"`
+	IdempotencyKey     string              `json:"idempotency_key"`
+	FreightTemplateID  *pkgtypes.Int64Str  `json:"freight_template_id"`
+	UseBalance         bool                `json:"use_balance"`
+	FromCartItemIDs    []pkgtypes.Int64Str `json:"from_cart_item_ids"` // 购物车下单时传，下单成功后删
 }
 
 // OrderItemReq 单行商品请求。
@@ -206,6 +208,11 @@ type FreightTemplateReq struct {
 
 // ---- Service ----
 
+// CartItemDeleter 购物车条目删除接口（避免 order 包导入 cart 包）。
+type CartItemDeleter interface {
+	DeleteByUserAndIDs(ctx context.Context, userID int64, ids []int64) error
+}
+
 // Service 订单服务。
 type Service struct {
 	repo        OrderRepo
@@ -217,6 +224,7 @@ type Service struct {
 	rdb         *redis.Client
 	asynqClient *asynq.Client
 	userRepo    account.UserRepo
+	cartDeleter CartItemDeleter
 }
 
 // NewService 构造 Service。
@@ -230,6 +238,7 @@ func NewService(
 	rdb *redis.Client,
 	asynqClient *asynq.Client,
 	userRepo account.UserRepo,
+	cartDeleter CartItemDeleter,
 ) *Service {
 	return &Service{
 		repo:        repo,
@@ -241,6 +250,7 @@ func NewService(
 		rdb:         rdb,
 		asynqClient: asynqClient,
 		userRepo:    userRepo,
+		cartDeleter: cartDeleter,
 	}
 }
 
@@ -344,14 +354,20 @@ func (s *Service) Transition(
 
 // CreateOrder 完整下单流程。
 func (s *Service) CreateOrder(ctx context.Context, userID int64, req CreateOrderReq) (*Order, error) {
-	// 1. 幂等键检查（Redis 缓存 24h，在 handler 层 Idempotency-Key 中间件已做初步拦截；
-	//    此处补充 service 层按 user 维度的幂等）
+	// 1. 幂等键检查（Redis 缓存 24h）
 	idemKey := req.IdempotencyKey
 	if idemKey != "" {
 		redisKey := fmt.Sprintf("order:idem:%d:%s", userID, idemKey)
-		exists, err := s.rdb.Exists(ctx, redisKey).Result()
-		if err == nil && exists > 0 {
-			return nil, errs.ErrConflict.WithMsg("重复下单（幂等键已存在）")
+		val, getErr := s.rdb.Get(ctx, redisKey).Result()
+		if getErr == nil && val != "" {
+			// 已下单，返回原始订单（幂等）
+			existingID, parseErr := strconv.ParseInt(val, 10, 64)
+			if parseErr == nil {
+				if existingOrder, findErr := s.repo.FindByID(ctx, existingID); findErr == nil {
+					return existingOrder, nil
+				}
+			}
+			// 若解析或查询失败，继续走创建流程（安全降级）
 		}
 	}
 
@@ -475,21 +491,6 @@ func (s *Service) CreateOrder(ctx context.Context, userID int64, req CreateOrder
 	freightCents := CalcFreight(goodsCents, addrSnap, freightTpl)
 
 	totalCents := goodsCents + freightCents
-	payCents := totalCents
-	var balancePayCents int64
-
-	// 余额抵扣（预估，实际扣减在 DB 事务后）
-	if req.UseBalance && s.userRepo != nil {
-		userBalance, balErr := s.userRepo.GetBalance(ctx, userID)
-		if balErr == nil && userBalance > 0 {
-			if userBalance >= payCents {
-				balancePayCents = payCents
-			} else {
-				balancePayCents = userBalance
-			}
-			payCents = payCents - balancePayCents
-		}
-	}
 
 	// 6. 生成 orderNo（yyyyMMddHHmmss + 6位随机）
 	orderNo := genOrderNo()
@@ -533,6 +534,7 @@ func (s *Service) CreateOrder(ctx context.Context, userID int64, req CreateOrder
 		idemKeyPtr = &idemKey
 	}
 
+	// 初始以全额支付，余额扣减在 DB 事务内计算并更新
 	o := &Order{
 		ID:              orderID,
 		OrderNo:         orderNo,
@@ -541,8 +543,8 @@ func (s *Service) CreateOrder(ctx context.Context, userID int64, req CreateOrder
 		GoodsCents:      goodsCents,
 		FreightCents:    freightCents,
 		TotalCents:      totalCents,
-		PayCents:        payCents,
-		BalancePayCents: balancePayCents,
+		PayCents:        totalCents,
+		BalancePayCents: 0,
 		AddressSnapshot: addrSnap,
 		BuyerRemark:     buyerRemark,
 		IdempotencyKey:  idemKeyPtr,
@@ -587,7 +589,19 @@ func (s *Service) CreateOrder(ctx context.Context, userID int64, req CreateOrder
 		Reason:       &reasonStr,
 	}
 
+	// 8. DB 事务
 	dbErr := s.repo.DB().WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// 8a. 余额扣减（事务内原子操作，避免 TOCTOU）
+		if req.UseBalance && s.userRepo != nil {
+			deducted, err := s.userRepo.DeductBalanceTx(ctx, tx, userID, totalCents, "order", orderID, "订单支付")
+			if err != nil {
+				return err
+			}
+			o.BalancePayCents = deducted
+			o.PayCents = totalCents - deducted
+		}
+
+		// 8b. 创建订单（PayCents/BalancePayCents 已在 8a 确定）
 		if err := tx.Create(o).Error; err != nil {
 			return err
 		}
@@ -597,12 +611,11 @@ func (s *Service) CreateOrder(ctx context.Context, userID int64, req CreateOrder
 		if err := tx.Create(&initLog).Error; err != nil {
 			return err
 		}
-		// DB 层锁库存（locked_stock += qty）
+
+		// 8c. DB 层锁库存（原子递增，避免并发覆盖）
 		for _, it := range req.Items {
-			sk := skuMap[it.SkuID.Int64()]
-			newLocked := sk.LockedStock + it.Qty
 			if err := tx.Table("sku").Where("id = ?", it.SkuID.Int64()).
-				Update("locked_stock", newLocked).Error; err != nil {
+				UpdateColumn("locked_stock", gorm.Expr("locked_stock + ?", it.Qty)).Error; err != nil {
 				return err
 			}
 		}
@@ -619,25 +632,35 @@ func (s *Service) CreateOrder(ctx context.Context, userID int64, req CreateOrder
 		return nil, errs.ErrInternal
 	}
 
-	// 10. 扣减余额（DB 事务外；若扣减失败不回滚订单，重置 balance_pay_cents 并记录告警）
-	if balancePayCents > 0 && s.userRepo != nil {
-		if deductErr := s.userRepo.DeductBalance(ctx, userID, balancePayCents, "order", orderID, "订单支付"); deductErr != nil {
-			logger.Ctx(ctx).Error("deduct balance failed, order still created",
-				zap.Int64("order_id", orderID),
-				zap.Int64("balance_pay_cents", balancePayCents),
-				zap.Error(deductErr))
-			// 余额扣减失败：重置订单 balance_pay_cents 并补回 pay_cents
-			_ = s.repo.DB().WithContext(ctx).Model(&Order{}).Where("id = ?", orderID).
-				Updates(map[string]any{
-					"balance_pay_cents": 0,
-					"pay_cents":         totalCents,
-				}).Error
-			o.BalancePayCents = 0
-			o.PayCents = totalCents
+	// 10. 删除购物车条目（下单成功后清除，最大努力）
+	if len(req.FromCartItemIDs) > 0 && s.cartDeleter != nil {
+		cartIDs := make([]int64, len(req.FromCartItemIDs))
+		for i, id := range req.FromCartItemIDs {
+			cartIDs[i] = id.Int64()
+		}
+		if err := s.cartDeleter.DeleteByUserAndIDs(ctx, userID, cartIDs); err != nil {
+			logger.Ctx(ctx).Warn("clean cart items after order creation failed",
+				zap.String("order_no", orderNo), zap.Error(err))
 		}
 	}
 
-	// 11. 投递超时关单任务（15 min）
+	// 11. 全额余额支付：自动触发 pay_success
+	if o.PayCents == 0 {
+		if _, transErr := s.Transition(ctx, orderID, "pay_success", "system", 0, "余额全额支付"); transErr != nil {
+			logger.Ctx(ctx).Error("full balance payment transition failed",
+				zap.Int64("order_id", orderID), zap.Error(transErr))
+		} else {
+			s.DeductStock(ctx, orderID, orderNo)
+		}
+		// 全额余额支付无需超时关单任务，直接跳过
+		if idemKey != "" {
+			redisKey := fmt.Sprintf("order:idem:%d:%s", userID, idemKey)
+			_ = s.rdb.SetEx(ctx, redisKey, fmt.Sprintf("%d", orderID), 24*time.Hour)
+		}
+		return o, nil
+	}
+
+	// 12. 投递超时关单任务（15 min）
 	payload, _ := json.Marshal(map[string]int64{"order_id": orderID})
 	task := asynq.NewTask("order:close", payload)
 	if _, enqErr := s.asynqClient.EnqueueContext(ctx, task,
@@ -647,10 +670,10 @@ func (s *Service) CreateOrder(ctx context.Context, userID int64, req CreateOrder
 		logger.Ctx(ctx).Warn("enqueue order:close failed", zap.Error(enqErr))
 	}
 
-	// 11. 存幂等缓存
+	// 13. 存幂等缓存
 	if idemKey != "" {
 		redisKey := fmt.Sprintf("order:idem:%d:%s", userID, idemKey)
-		_ = s.rdb.SetEx(ctx, redisKey, orderID, 24*time.Hour)
+		_ = s.rdb.SetEx(ctx, redisKey, fmt.Sprintf("%d", orderID), 24*time.Hour)
 	}
 
 	return o, nil
@@ -772,6 +795,13 @@ func (s *Service) CancelOrder(ctx context.Context, orderID, userID int64, reason
 		}
 		// DB 解锁库存
 		s.releaseDBStock(ctx, orderID)
+		// 退还已扣余额
+		if o.BalancePayCents > 0 {
+			if refErr := s.RefundUserBalance(ctx, orderID); refErr != nil {
+				logger.Ctx(ctx).Error("refund balance on user cancel failed",
+					zap.Int64("order_id", orderID), zap.Error(refErr))
+			}
+		}
 		return nil
 
 	case StatusPaid:
@@ -869,6 +899,13 @@ func (s *Service) AdminCancelOrder(ctx context.Context, orderID, adminID int64, 
 				zap.String("order_no", o.OrderNo), zap.Error(relErr))
 		}
 		s.releaseDBStock(ctx, orderID)
+		// 退还已扣余额
+		if o.BalancePayCents > 0 {
+			if refErr := s.RefundUserBalance(ctx, orderID); refErr != nil {
+				logger.Ctx(ctx).Error("refund balance on admin cancel failed",
+					zap.Int64("order_id", orderID), zap.Error(refErr))
+			}
+		}
 	}
 	return nil
 }
@@ -1028,6 +1065,97 @@ func (s *Service) DeleteFreightTemplate(ctx context.Context, id int64) error {
 }
 
 // ---- 内部辅助 ----
+
+// DeductStock 支付成功后扣减库存：释放 Redis 锁 + DB 实扣。
+func (s *Service) DeductStock(ctx context.Context, orderID int64, orderNo string) {
+	if _, err := s.stockClient.Release(ctx, orderNo); err != nil {
+		logger.Ctx(ctx).Error("deduct stock: release redis lock failed",
+			zap.String("order_no", orderNo), zap.Error(err))
+	}
+	var items []OrderItem
+	if err := s.repo.DB().WithContext(ctx).Where("order_id = ?", orderID).Find(&items).Error; err != nil {
+		logger.Ctx(ctx).Error("deduct stock: find items failed",
+			zap.Int64("order_id", orderID), zap.Error(err))
+		return
+	}
+	for _, it := range items {
+		if err := s.invRepo.DeductDB(ctx, int(it.SkuID), it.Qty, orderID); err != nil {
+			logger.Ctx(ctx).Error("deduct stock: deduct db failed",
+				zap.Int64("sku_id", it.SkuID), zap.Error(err))
+		}
+	}
+}
+
+// RefundUserBalance 退还订单占用的余额（取消/超时关单时调用）。
+func (s *Service) RefundUserBalance(ctx context.Context, orderID int64) error {
+	if s.userRepo == nil {
+		return nil
+	}
+	o, err := s.repo.FindByID(ctx, orderID)
+	if err != nil {
+		return err
+	}
+	if o.BalancePayCents <= 0 {
+		return nil
+	}
+	return s.userRepo.RefundBalance(ctx, o.UserID, o.BalancePayCents, "order", orderID, "订单取消退款")
+}
+
+// TransitionInTx 在外部事务 tx 内执行状态机变更（供 payment 模块原子操作使用）。
+func (s *Service) TransitionInTx(ctx context.Context, tx *gorm.DB, orderID int64, trigger, operatorType string, operatorID int64, reason string) error {
+	return tx.WithContext(ctx).Transaction(func(innerTx *gorm.DB) error {
+		o, err := s.repo.FindByIDForUpdate(ctx, innerTx, orderID)
+		if err != nil {
+			if err == gorm.ErrRecordNotFound {
+				return errs.ErrNotFound
+			}
+			return errs.ErrInternal
+		}
+		preferTo := ""
+		if trigger == "refund_failed" && o.Status == StatusRefunding {
+			preferTo = s.findPreRefundStatus(ctx, o.ID)
+		}
+		tr := findTransition(o.Status, trigger, preferTo)
+		if tr == nil {
+			return errs.ErrParam.WithMsg(
+				fmt.Sprintf("非法状态迁移：%s -[%s]->", o.Status, trigger))
+		}
+		now := time.Now()
+		o.Status = tr.To
+		o.UpdatedAt = now
+		switch tr.To {
+		case StatusPaid:
+			o.PaidAt = &now
+		case StatusShipped:
+			o.ShippedAt = &now
+		case StatusCompleted:
+			o.CompletedAt = &now
+		case StatusCancelled:
+			o.CancelledAt = &now
+		}
+		if err := innerTx.Save(o).Error; err != nil {
+			return err
+		}
+		fromStatus := tr.From
+		toStatus := tr.To
+		reasonPtr := &reason
+		opType := operatorType
+		var opID *int64
+		if operatorID > 0 {
+			opID = &operatorID
+		}
+		log := &OrderLog{
+			ID:           snowflake.NextID(),
+			OrderID:      orderID,
+			FromStatus:   &fromStatus,
+			ToStatus:     &toStatus,
+			Reason:       reasonPtr,
+			OperatorType: &opType,
+			OperatorID:   opID,
+		}
+		return innerTx.Create(log).Error
+	})
+}
 
 // releaseDBStock 关单后 DB 解锁库存。
 func (s *Service) releaseDBStock(ctx context.Context, orderID int64) {

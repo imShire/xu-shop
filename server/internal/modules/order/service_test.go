@@ -483,10 +483,23 @@ func TestIdempotency_SameKey(t *testing.T) {
 	}
 }
 
-// TestCreateOrder_IdempotencyKey_SameUser_ReturnsSameOrder 相同幂等键 + 相同用户二次下单返回冲突错误（不创建重复订单）。
+// TestCreateOrder_IdempotencyKey_SameUser_ReturnsSameOrder 相同幂等键 + 相同用户二次下单返回已有订单（不创建重复订单）。
 func TestCreateOrder_IdempotencyKey_SameUser_ReturnsSameOrder(t *testing.T) {
 	rdb := newTestRdb(t)
 	repo := newMockOrderRepo()
+
+	// 预置一个已存在的订单
+	existingOrderID := int64(123456789)
+	existingOrder := &Order{
+		ID:         existingOrderID,
+		OrderNo:    "ON123456789",
+		UserID:     100,
+		Status:     StatusPending,
+		TotalCents: 1000,
+		PayCents:   1000,
+	}
+	repo.orders[existingOrderID] = existingOrder
+
 	svc := &Service{
 		repo:    repo,
 		skuRepo: &mockSKURepo{skus: map[int64]product.SKU{}},
@@ -504,9 +517,9 @@ func TestCreateOrder_IdempotencyKey_SameUser_ReturnsSameOrder(t *testing.T) {
 	idemKey := "idem-unique-key-001"
 	redisKey := fmt.Sprintf("order:idem:%d:%s", userID, idemKey)
 
-	// 模拟「第一次下单已成功」：直接写入 Redis 幂等键（service 成功下单后会写入此 key）
+	// 模拟「第一次下单已成功」：直接写入 Redis 幂等键
 	ctx := context.Background()
-	_ = rdb.SetEx(ctx, redisKey, "123456789", 24*time.Hour)
+	_ = rdb.SetEx(ctx, redisKey, fmt.Sprintf("%d", existingOrderID), 24*time.Hour)
 
 	req := CreateOrderReq{
 		AddressID:      1,
@@ -514,23 +527,18 @@ func TestCreateOrder_IdempotencyKey_SameUser_ReturnsSameOrder(t *testing.T) {
 		IdempotencyKey: idemKey,
 	}
 
-	// 第二次调用应被幂等键拦截，返回 ErrConflict（不会走到 SKU 查找）
-	_, err := svc.CreateOrder(ctx, userID, req)
-	if err == nil {
-		t.Fatal("expected ErrConflict for duplicate idempotency key, got nil")
+	// 第二次调用应被幂等键拦截，返回已存在的订单（不走到 SKU 查找）
+	got, err := svc.CreateOrder(ctx, userID, req)
+	if err != nil {
+		t.Fatalf("expected existing order to be returned, got error: %v", err)
 	}
-
-	ae, ok := err.(*errs.AppError)
-	if !ok {
-		t.Fatalf("expected AppError, got %T: %v", err, err)
-	}
-	if ae.Code != errs.ErrConflict.Code {
-		t.Fatalf("expected ErrConflict code=%d, got code=%d: %s", errs.ErrConflict.Code, ae.Code, ae.Message)
+	if got == nil || got.ID != existingOrderID {
+		t.Fatalf("expected existing order ID=%d, got %v", existingOrderID, got)
 	}
 
 	// 验证没有新订单被写入 DB（幂等拦截应在订单创建之前）
-	if len(repo.orders) != 0 {
-		t.Fatalf("expected 0 orders created, got %d", len(repo.orders))
+	if len(repo.orders) != 1 {
+		t.Fatalf("expected 1 order in repo (the existing one), got %d", len(repo.orders))
 	}
 }
 

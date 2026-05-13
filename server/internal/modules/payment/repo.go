@@ -20,10 +20,14 @@ type PaymentRepo interface {
 	FindSuccessByOrder(ctx context.Context, orderID int64) (*Payment, error)
 	// MarkSuccess 标记支付成功。
 	MarkSuccess(ctx context.Context, id int64, raw []byte, paidAt time.Time) error
+	// MarkSuccessTx 在外部事务 tx 中标记支付成功（与状态机 Transition 保持原子）。
+	MarkSuccessTx(ctx context.Context, tx *gorm.DB, id int64, raw []byte, paidAt time.Time) error
 	// MarkFailed 标记支付失败。
 	MarkFailed(ctx context.Context, id int64) error
 	// MarkOrphan 标记为金额异常（已入队自动退款）。
 	MarkOrphan(ctx context.Context, id int64) error
+	// MarkOrphanTx 在外部事务 tx 中标记为金额异常。
+	MarkOrphanTx(ctx context.Context, tx *gorm.DB, id int64) error
 	// CreatePayment 创建支付记录（预支付时调用）。
 	CreatePayment(ctx context.Context, p *Payment) error
 
@@ -132,6 +136,15 @@ func (r *paymentRepoImpl) MarkSuccess(ctx context.Context, id int64, raw []byte,
 	}).Error
 }
 
+func (r *paymentRepoImpl) MarkSuccessTx(ctx context.Context, tx *gorm.DB, id int64, raw []byte, paidAt time.Time) error {
+	return tx.WithContext(ctx).Model(&Payment{}).Where("id = ?", id).Updates(map[string]any{
+		"status":     PayStatusSuccess,
+		"raw_notify": rawNotifyFromBytes(raw),
+		"paid_at":    paidAt,
+		"updated_at": time.Now(),
+	}).Error
+}
+
 func (r *paymentRepoImpl) MarkFailed(ctx context.Context, id int64) error {
 	return r.db.WithContext(ctx).Model(&Payment{}).Where("id = ?", id).Updates(map[string]any{
 		"status":     PayStatusFailed,
@@ -141,6 +154,13 @@ func (r *paymentRepoImpl) MarkFailed(ctx context.Context, id int64) error {
 
 func (r *paymentRepoImpl) MarkOrphan(ctx context.Context, id int64) error {
 	return r.db.WithContext(ctx).Model(&Payment{}).Where("id = ?", id).Updates(map[string]any{
+		"status":     PayStatusOrphan,
+		"updated_at": time.Now(),
+	}).Error
+}
+
+func (r *paymentRepoImpl) MarkOrphanTx(ctx context.Context, tx *gorm.DB, id int64) error {
+	return tx.WithContext(ctx).Model(&Payment{}).Where("id = ?", id).Updates(map[string]any{
 		"status":     PayStatusOrphan,
 		"updated_at": time.Now(),
 	}).Error

@@ -10,6 +10,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/redis/go-redis/v9"
 	"golang.org/x/crypto/bcrypt"
+	"gorm.io/gorm"
 
 	"github.com/xushop/xu-shop/internal/config"
 	"github.com/xushop/xu-shop/internal/modules/account"
@@ -93,6 +94,9 @@ func (m *mockUserRepo) DeductBalance(_ context.Context, _ int64, _ int64, _ stri
 }
 func (m *mockUserRepo) RefundBalance(_ context.Context, _ int64, _ int64, _ string, _ int64, _ string) error {
 	return nil
+}
+func (m *mockUserRepo) DeductBalanceTx(_ context.Context, _ *gorm.DB, _ int64, _ int64, _ string, _ int64, _ string) (int64, error) {
+	return 0, nil
 }
 func (m *mockUserRepo) ListBalanceLogs(_ context.Context, _ int64, _, _ int) ([]account.BalanceLog, int64, error) {
 	return nil, 0, nil
