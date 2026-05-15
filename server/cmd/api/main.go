@@ -82,7 +82,7 @@ func main() {
 	// 4. 全局中间件
 	r.Use(middleware.Recovery())
 	r.Use(middleware.Logging())
-	r.Use(middleware.CORS([]string{"http://localhost:3000", "http://localhost:5173"}))
+	r.Use(middleware.CORS([]string{"http://localhost:3000", "http://localhost:5273"}))
 
 	// 5. 健康检查 & metrics & 文档
 	r.GET("/healthz", func(c *gin.Context) {

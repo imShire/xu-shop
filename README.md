@@ -99,7 +99,7 @@ make run-worker       # asynq worker
 ```bash
 cd admin
 pnpm install
-pnpm dev              # http://localhost:5173
+pnpm dev              # http://localhost:5273
 ```
 
 ### C 端

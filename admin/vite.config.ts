@@ -16,7 +16,7 @@ export default defineConfig(({ mode }) => {
     ],
     resolve: { alias: { '@': path.resolve(__dirname, 'src') } },
     server: {
-      port: 5173,
+      port: 5273,
       proxy: {
         '/api': { target: env.VITE_API_BASE?.replace(/\/api\/v1$/, '') ?? 'http://localhost:8080', changeOrigin: true }
       }

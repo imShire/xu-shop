@@ -3,22 +3,22 @@ import Taro, { useDidShow } from '@tarojs/taro'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuthGuard } from '@/hooks/useAuthGuard'
 import { getOrders } from '@/services/order'
-import { getMyBalance } from '@/services/user'
+import { getMyBalance, getFavorites, getHistory } from '@/services/user'
 import { useAuthStore } from '@/stores/auth'
-import { Avatar, Button, Cell } from '@/ui/nutui'
+import { Avatar } from '@/ui/nutui'
 import {
   ArrowRight,
   List,
   Location,
+  Order,
   Setting,
   User,
   HeartFill,
   Footprint,
-  Order,
 } from '@/ui/icons'
 import {
-  ToPay,
   ToReceive,
+  Wallet,
 } from '@nutui/icons-react-taro'
 import './index.scss'
 
@@ -31,48 +31,30 @@ interface OrderShortcut {
   label: string
   tab: string
   icon: React.ComponentType<IconProps>
-  queryKey: 'all' | 'pending_payment' | 'paid' | 'shipped'
+  queryKey: 'pending_payment' | 'paid' | 'shipped' | null
 }
 
 const ORDER_SHORTCUTS: OrderShortcut[] = [
-  { label: '待付款', tab: 'pending_payment', icon: ToPay, queryKey: 'pending_payment' },
+  { label: '待付款', tab: 'pending_payment', icon: Wallet, queryKey: 'pending_payment' },
   { label: '待发货', tab: 'paid', icon: Order, queryKey: 'paid' },
   { label: '待收货', tab: 'shipped', icon: ToReceive, queryKey: 'shipped' },
-  { label: '全部订单', tab: '', icon: List, queryKey: 'all' },
+  { label: '全部订单', tab: '', icon: List, queryKey: null },
 ]
 
-interface ServiceShortcut {
+interface ServiceItem {
   label: string
-  description: string
   url: string
   icon: React.ComponentType<IconProps>
 }
 
-const SERVICE_SHORTCUTS: ServiceShortcut[] = [
-  {
-    label: '收货地址',
-    description: '管理常用收货地址',
-    url: '/pages/address/list/index',
-    icon: Location,
-  },
-  {
-    label: '我的收藏',
-    description: '同步心仪商品清单',
-    url: '/pages/user/favorite/index',
-    icon: HeartFill,
-  },
-  {
-    label: '浏览记录',
-    description: '查看最近浏览商品',
-    url: '/pages/user/history/index',
-    icon: Footprint,
-  },
-  {
-    label: '账号设置',
-    description: '头像、昵称与密码管理',
-    url: '/pages/user/settings/index',
-    icon: Setting,
-  },
+const MY_SERVICES: ServiceItem[] = [
+  { label: '收货地址', url: '/pages/address/list/index', icon: Location },
+  { label: '我的收藏', url: '/pages/user/favorite/index', icon: HeartFill },
+  { label: '浏览记录', url: '/pages/user/history/index', icon: Footprint },
+]
+
+const MORE_SERVICES: ServiceItem[] = [
+  { label: '账号设置', url: '/pages/user/settings/index', icon: Setting },
 ]
 
 function maskPhone(phone: string | null | undefined): string {
@@ -94,19 +76,12 @@ function formatCount(value: number): string {
 export default function UserPage() {
   const queryClient = useQueryClient()
   const ensureAuth = useAuthGuard()
-  const { isLoggedIn, logout, user } = useAuthStore()
+  const { isLoggedIn, user } = useAuthStore()
 
   useDidShow(() => {
     if (isLoggedIn) {
       void queryClient.invalidateQueries({ queryKey: ['user-center'] })
     }
-  })
-
-  const allOrdersQuery = useQuery({
-    queryKey: ['user-center', 'orders', 'all'],
-    queryFn: () => getOrders({ page: 1, page_size: 1 }),
-    enabled: isLoggedIn,
-    staleTime: 60 * 1000,
   })
 
   const pendingOrdersQuery = useQuery({
@@ -137,21 +112,19 @@ export default function UserPage() {
     staleTime: 60 * 1000,
   })
 
-  const handleLogout = () => {
-    void Taro.showModal({
-      title: '退出登录',
-      content: '确认退出当前账号？',
-      confirmText: '退出',
-      cancelText: '取消',
-    }).then(({ confirm }) => {
-      if (confirm) {
-        void logout().then(() => {
-          queryClient.clear()
-          void Taro.switchTab({ url: '/pages/home/index' })
-        })
-      }
-    })
-  }
+  const favoritesQuery = useQuery({
+    queryKey: ['user-center', 'favorites'],
+    queryFn: () => getFavorites({ page: 1, page_size: 1 }),
+    enabled: isLoggedIn,
+    staleTime: 60 * 1000,
+  })
+
+  const historyQuery = useQuery({
+    queryKey: ['user-center', 'history'],
+    queryFn: () => getHistory({ page: 1, page_size: 1 }),
+    enabled: isLoggedIn,
+    staleTime: 60 * 1000,
+  })
 
   const handleLogin = () => {
     void ensureAuth(undefined, '/pages/user/index/index')
@@ -171,163 +144,173 @@ export default function UserPage() {
     }, url)
   }
 
-  const orderCounts = {
-    all: allOrdersQuery.data?.total ?? 0,
+  const orderCounts: Record<string, number> = {
     pending_payment: pendingOrdersQuery.data?.total ?? 0,
     paid: paidOrdersQuery.data?.total ?? 0,
     shipped: shippedOrdersQuery.data?.total ?? 0,
   }
 
+  const stats = [
+    { label: '收藏', value: isLoggedIn ? String(favoritesQuery.data?.total ?? 0) : '0', url: '/pages/user/favorite/index' },
+    { label: '足迹', value: isLoggedIn ? String(historyQuery.data?.total ?? 0) : '0', url: '/pages/user/history/index' },
+    { label: '余额', value: isLoggedIn ? `¥${((balanceQuery.data?.balance_cents ?? 0) / 100).toFixed(2)}` : '¥0.00', url: '/pages/user/balance/index' },
+    { label: '优惠券', value: '0', url: '' },
+  ]
+
   return (
-    <View className='page-shell page-shell--tab user-page'>
-      <View className='user-page__profile-card'>
+    <View className='user-page'>
+      {/* Green header banner */}
+      <View className='user-page__banner'>
         <View
-          className='user-page__profile-setting'
+          className='user-page__setting-btn'
           onClick={() => navigateProtected('/pages/user/settings/index')}
         >
-          <Setting size={20} color='#7c5a31' />
+          <Setting size={22} color='#fff' />
         </View>
 
         <View
-          className='user-page__profile-main'
-          onClick={() => {
-            if (!isLoggedIn) {
-              handleLogin()
-            }
-          }}
+          className='user-page__profile-row'
+          onClick={() => { if (!isLoggedIn) { handleLogin() } }}
         >
           <Avatar
             size='large'
             src={isLoggedIn ? (user?.avatar ?? undefined) : undefined}
-            className='user-page__profile-avatar'
+            className='user-page__avatar'
           >
             {isLoggedIn
               ? (user?.nickname?.slice(0, 1) ?? '我')
-              : <User size={26} color='#8f6a41' />}
+              : <User size={26} color='#07C160' />}
           </Avatar>
 
-          <View className='user-page__profile-copy'>
+          <View className='user-page__profile-info'>
             {isLoggedIn ? (
               <>
-                <Text className='user-page__profile-name'>{user?.nickname ?? '微信用户'}</Text>
-                <Text className='user-page__profile-phone'>{maskPhone(user?.phone)}</Text>
+                <Text className='user-page__nickname'>{user?.nickname ?? '微信用户'}</Text>
+                <Text className='user-page__phone'>{maskPhone(user?.phone)}</Text>
               </>
             ) : (
               <>
-                <Text className='user-page__profile-name'>登录后查看完整账户</Text>
-                <Text className='user-page__profile-phone'>订单、收藏和收货地址会同步到这里</Text>
+                <Text className='user-page__nickname'>登录后查看完整账户</Text>
+                <Text className='user-page__phone'>点击立即登录</Text>
               </>
             )}
           </View>
-
-          {!isLoggedIn && (
-            <View className='user-page__profile-arrow'>
-              <ArrowRight width={16} height={16} color='#b17b45' />
-            </View>
-          )}
         </View>
 
+        {/* Stats row */}
+        <View className='user-page__stats'>
+          {stats.map((s) => (
+            <View
+              key={s.label}
+              className='user-page__stat-item'
+              onClick={() => { if (s.url) { navigateProtected(s.url) } }}
+            >
+              <Text className='user-page__stat-count'>{s.value}</Text>
+              <Text className='user-page__stat-label'>{s.label}</Text>
+            </View>
+          ))}
+        </View>
+
+        {/* Balance row */}
         {isLoggedIn && (
           <View
-            className='user-page__profile-balance'
+            className='user-page__balance-row'
             onClick={() => navigateProtected('/pages/user/balance/index')}
           >
-            <Text className='user-page__profile-balance-label'>可用余额</Text>
-            <Text className='user-page__profile-balance-value'>
+            <Text className='user-page__balance-label'>可用余额</Text>
+            <Text className='user-page__balance-value'>
               ¥{((balanceQuery.data?.balance_cents ?? 0) / 100).toFixed(2)}
             </Text>
-            <ArrowRight width={14} height={14} color='#b17b45' />
+            <ArrowRight width={14} height={14} color='rgba(255,255,255,0.7)' />
           </View>
-        )}
-
-        {!isLoggedIn && (
-          <Button type='primary' className='user-page__login-button' onClick={handleLogin}>
-            立即登录
-          </Button>
         )}
       </View>
 
+      {/* Orders section */}
       <View className='user-page__section'>
         <View className='user-page__section-head'>
-          <View>
-            <Text className='user-page__section-title'>订单中心</Text>
-            <Text className='user-page__section-subtitle'>按状态快速查看处理中的订单</Text>
-          </View>
-          <Text
-            className='user-page__section-link'
-            onClick={() => openOrder('')}
-          >
-            查看全部
+          <Text className='user-page__section-title'>我的订单</Text>
+          <Text className='user-page__section-link' onClick={() => openOrder('')}>
+            查看全部 &gt;
           </Text>
         </View>
 
-        <View className='user-page__order-grid'>
+        <View className='user-page__icon-grid'>
           {ORDER_SHORTCUTS.map((item) => {
             const IconComp = item.icon
-            const count = orderCounts[item.queryKey]
-            const shouldShowBadge = isLoggedIn && count > 0
+            const count = item.queryKey ? (orderCounts[item.queryKey] ?? 0) : 0
+            const showBadge = isLoggedIn && count > 0
 
             return (
               <View
                 key={item.label}
-                className='user-page__order-item'
+                className='user-page__icon-item'
                 onClick={() => openOrder(item.tab)}
               >
-                <View className='user-page__order-icon-wrap'>
-                  <IconComp size={22} color='#9a6936' />
-                  {shouldShowBadge && (
-                    <Text className='user-page__order-badge'>{formatCount(count)}</Text>
+                <View className='user-page__icon-wrap'>
+                  <IconComp size={28} color='#333' />
+                  {showBadge && (
+                    <Text className='user-page__badge'>{formatCount(count)}</Text>
                   )}
                 </View>
-                <Text className='user-page__order-label'>{item.label}</Text>
+                <Text className='user-page__icon-label'>{item.label}</Text>
               </View>
             )
           })}
         </View>
       </View>
 
-      <View className='user-page__section user-page__section--tools'>
+      {/* My services section */}
+      <View className='user-page__section'>
         <View className='user-page__section-head'>
-          <View>
-            <Text className='user-page__section-title'>常用功能</Text>
-            <Text className='user-page__section-subtitle'>保留当前系统里真实可用的高频入口</Text>
-          </View>
+          <Text className='user-page__section-title'>我的服务</Text>
         </View>
 
-        <View className='user-page__tool-grid'>
-          {SERVICE_SHORTCUTS.map((item) => {
+        <View className='user-page__icon-grid'>
+          {MY_SERVICES.map((item) => {
             const IconComp = item.icon
 
             return (
               <View
                 key={item.label}
-                className='user-page__tool-card'
+                className='user-page__icon-item'
                 onClick={() => navigateProtected(item.url)}
               >
-                <View className='user-page__tool-icon'>
-                  <IconComp size={20} color='#7d5a2d' />
+                <View className='user-page__icon-wrap'>
+                  <IconComp size={28} color='#333' />
                 </View>
-                <View className='user-page__tool-copy'>
-                  <Text className='user-page__tool-label'>{item.label}</Text>
-                  <Text className='user-page__tool-description'>{item.description}</Text>
-                </View>
-                <ArrowRight width={14} height={14} color='#b89a74' />
+                <Text className='user-page__icon-label'>{item.label}</Text>
               </View>
             )
           })}
         </View>
       </View>
 
-      {isLoggedIn && (
-        <Button
-          plain
-          type='primary'
-          className='user-page__logout'
-          onClick={handleLogout}
-        >
-          退出登录
-        </Button>
-      )}
+      {/* More services section */}
+      <View className='user-page__section'>
+        <View className='user-page__section-head'>
+          <Text className='user-page__section-title'>更多服务</Text>
+        </View>
+
+        <View className='user-page__icon-grid'>
+          {MORE_SERVICES.map((item) => {
+            const IconComp = item.icon
+
+            return (
+              <View
+                key={item.label}
+                className='user-page__icon-item'
+                onClick={() => navigateProtected(item.url)}
+              >
+                <View className='user-page__icon-wrap'>
+                  <IconComp size={28} color='#333' />
+                </View>
+                <Text className='user-page__icon-label'>{item.label}</Text>
+              </View>
+            )
+          })}
+        </View>
+      </View>
     </View>
   )
 }

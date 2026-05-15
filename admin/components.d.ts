@@ -55,6 +55,7 @@ declare module 'vue' {
     ElTimeline: typeof import('element-plus/es')['ElTimeline']
     ElTimelineItem: typeof import('element-plus/es')['ElTimelineItem']
     ElTooltip: typeof import('element-plus/es')['ElTooltip']
+    LinkPicker: typeof import('./src/components/LinkPicker/index.vue')['default']
     PriceInput: typeof import('./src/components/PriceInput/index.vue')['default']
     ProTable: typeof import('./src/components/ProTable/index.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']

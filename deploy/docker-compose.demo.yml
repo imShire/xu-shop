@@ -75,7 +75,7 @@ services:
         VITE_APP_TITLE: xu-shop后台
         TARO_APP_API: http://localhost:8080/api/v1
     ports:
-      - "5173:5173"   # admin
+      - "5273:5273"   # admin
       - "10086:10086" # client H5
     depends_on:
       - api

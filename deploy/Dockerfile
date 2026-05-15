@@ -75,11 +75,11 @@ ENV VITE_API_BASE=$VITE_API_BASE \
 
 RUN pnpm build:h5
 
-# ─── Frontend Runtime (admin :5173 + client H5 :10086) ──────────────────────────
+# ─── Frontend Runtime (admin :5273 + client H5 :10086) ──────────────────────────
 FROM nginx:1.27-alpine AS frontend
 
 COPY --from=admin-builder  /app/dist      /usr/share/nginx/admin
 COPY --from=client-builder /app/dist/h5   /usr/share/nginx/client
 COPY deploy/nginx.frontend.conf /etc/nginx/conf.d/default.conf
 
-EXPOSE 5173 10086
+EXPOSE 5273 10086
