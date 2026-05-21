@@ -8,6 +8,7 @@ import (
 
 	"github.com/xushop/xu-shop/internal/pkg/errs"
 	srv "github.com/xushop/xu-shop/internal/server"
+	pkgtypes "github.com/xushop/xu-shop/internal/pkg/types"
 )
 
 // Handler 订单模块 HTTP 处理器。
@@ -35,7 +36,7 @@ func (h *Handler) Create(c *gin.Context) {
 		failWith(c, err)
 		return
 	}
-	srv.OK(c, o)
+	srv.OK(c, gin.H{"order_id": pkgtypes.Int64Str(o.ID), "order_no": o.OrderNo})
 }
 
 // List 订单列表。

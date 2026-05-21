@@ -4,65 +4,70 @@
 }
 
 .home-page {
-  height: 100vh;
-  padding: 32px 32px 240px;
-  background-color: var(--ds-color-bg-page);
-  box-sizing: border-box;
+  min-height: 100vh;
+  padding-bottom: 240px;
+  background-color: #f5f5f5;
 
-  &__search-shell {
+  // ── Top bar ───────────────────────────────────────
+  &__topbar {
     display: flex;
     align-items: center;
     gap: 20px;
-    padding: 16px 24px;
-    border: 2px solid var(--ds-color-line);
-    border-radius: 19998px;
-    background: var(--ds-color-bg-card);
-    box-shadow: var(--ds-shadow-xs);
+    padding: 20px 24px 16px;
+    background: #fff;
   }
 
-  &__search-field {
+  &__brand {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  &__brand-name {
+    display: block;
+    color: var(--ds-color-primary);
+    font-size: 32px;
+    font-weight: 700;
+    line-height: 1.2;
+    white-space: nowrap;
+  }
+
+  &__search-shell {
     flex: 1;
     display: flex;
     align-items: center;
     gap: 16px;
+    padding: 16px 20px;
+    border-radius: 19998px;
+    background: #f5f5f5;
     min-width: 0;
-    padding: 0 8px;
   }
 
   &__search-icon {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    color: var(--ds-color-text-disabled);
+    flex-shrink: 0;
+    color: #999;
   }
 
   &__search-placeholder {
-    color: var(--ds-color-text-disabled);
+    flex: 1;
+    color: #999;
     font-size: 26px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
 
-  &__search-button {
-    flex-shrink: 0;
-    padding: 16px 32px;
-    border-radius: 19998px;
-    background: var(--ds-color-primary-light);
-    color: var(--ds-color-primary);
-    font-size: 24px;
-    font-weight: 600;
-    line-height: 1;
-  }
-
+  // ── Hero banner ─────────────────────────────────────
   &__hero {
     position: relative;
-    margin-top: 32px;
-    border: 2px solid var(--ds-color-line);
-    border-radius: 28px;
+    margin: 16px 16px 0;
+    border-radius: 16px;
     overflow: hidden;
-    background: var(--ds-color-bg-card);
-    box-shadow: var(--ds-shadow);
+    background: #f0f0f0;
   }
 
   &__hero--skeleton {
@@ -71,7 +76,7 @@
 
   &__hero-swiper {
     width: 100%;
-    height: 320px;
+    height: 380px;
   }
 
   &__hero-slide {
@@ -135,13 +140,13 @@
     background: rgba(255, 255, 255, 0.9);
   }
 
+  // ── Feature / 金刚区 ──────────────────────────────
   &__feature-panel {
-    margin-top: 32px;
-    padding: 28px 16px 12px;
-    border: 2px solid var(--ds-color-line);
-    border-radius: 28px;
-    background: var(--ds-color-bg-card);
-    box-shadow: var(--ds-shadow);
+    margin: 16px 16px 0;
+    padding: 20px 8px 12px;
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
   }
 
   &__feature-grid {
@@ -155,9 +160,8 @@
     flex-direction: column;
     align-items: center;
     justify-content: flex-start;
-    gap: 16px;
-    min-height: 152px;
-    padding: 16px 8px 20px;
+    gap: 12px;
+    padding: 12px 4px 16px;
     cursor: pointer;
 
     &:active { opacity: 0.75; }
@@ -171,10 +175,10 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 96px;
-    height: 96px;
+    width: 88px;
+    height: 88px;
     border-radius: 50%;
-    background: var(--ds-color-bg-mist);
+    // background supplied via inline style (FEATURE_COLORS)
   }
 
   &__feature-image {
@@ -202,12 +206,43 @@
     background: var(--ds-color-line);
   }
 
+  // ── Trust bar ────────────────────────────────────────
+  &__trust-bar {
+    display: flex;
+    margin: 16px 16px 0;
+    padding: 0;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    overflow: hidden;
+  }
+
+  &__trust-item {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 20px 0;
+    border-right: 1px solid #f0f0f0;
+
+    &:last-child { border-right: none; }
+  }
+
+  &__trust-text {
+    display: block;
+    color: #555;
+    font-size: 24px;
+    line-height: 1.4;
+  }
+
+  // ── Product section ──────────────────────────────
   &__section-head {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-top: 44px;
-    padding: 0 4px 20px;
+    margin-top: 32px;
+    padding: 0 24px 16px;
   }
 
   &__section-title {
@@ -233,15 +268,15 @@
   &__product-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 24px;
+    gap: 16px;
+    padding: 0 16px;
   }
 
   &__product-card {
     overflow: hidden;
-    border: 2px solid var(--ds-color-line);
-    border-radius: 28px;
-    background: var(--ds-color-bg-card);
-    box-shadow: var(--ds-shadow);
+    border-radius: 16px;
+    background: #fff;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
     animation: home-rise-in 280ms ease-out;
   }
 

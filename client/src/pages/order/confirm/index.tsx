@@ -12,7 +12,7 @@ import { getCart, precheckCartItems } from '@/services/cart'
 import { getAddresses } from '@/services/address'
 import { getMyBalance } from '@/services/user'
 import type { Address, CartItem } from '@/types/biz'
-import { Button, Cell, CellGroup, Input, SafeArea, Skeleton, Switch } from '@/ui/nutui'
+import { Button, Cell, Input, SafeArea, Skeleton, Switch } from '@/ui/nutui'
 import {
   formatCartConflictReason,
   formatCartSkuAttrs,
@@ -288,7 +288,7 @@ export default function OrderConfirmPage() {
   return (
     <View className='page-shell order-confirm-page'>
       {/* Address */}
-      <View className='order-confirm-page__section'>
+      <View className='order-confirm-page__block'>
         {addressQuery.isLoading ? (
           <Skeleton animated rows={2} />
         ) : selectedAddress ? (
@@ -307,7 +307,7 @@ export default function OrderConfirmPage() {
       </View>
 
       {/* Items */}
-      <CellGroup className='order-confirm-page__section' title='商品清单'>
+      <View className='order-confirm-page__block'>
         {isCartLoading ? (
           <Skeleton animated rows={3} />
         ) : (
@@ -358,10 +358,15 @@ export default function OrderConfirmPage() {
             ))}
           </>
         )}
-      </CellGroup>
+        {/* Delivery */}
+        <View className='order-confirm-page__delivery-row'>
+          <Text className='order-confirm-page__row-label'>配送</Text>
+          <Text className='order-confirm-page__row-value'>普通快递</Text>
+        </View>
+      </View>
 
       {/* Buyer remark */}
-      <View className='order-confirm-page__section order-confirm-page__message'>
+      <View className='order-confirm-page__block order-confirm-page__remark'>
         <Input
           value={buyerRemark}
           placeholder='如需备注请输入留言（选填）'
@@ -371,7 +376,7 @@ export default function OrderConfirmPage() {
 
       {/* Balance toggle */}
       {isLoggedIn && balanceCents > 0 && (
-        <View className='order-confirm-page__section'>
+        <View className='order-confirm-page__block'>
           <Cell
             title={`使用余额（可用 ¥${(balanceCents / 100).toFixed(2)}）`}
             extra={
@@ -385,7 +390,7 @@ export default function OrderConfirmPage() {
       )}
 
       {/* Price summary */}
-      <View className='order-confirm-page__section order-confirm-page__summary'>
+      <View className='order-confirm-page__block order-confirm-page__summary'>
         <View className='order-confirm-page__summary-row'>
           <Text className='order-confirm-page__summary-label'>商品合计</Text>
           <Text className='order-confirm-page__summary-value'>

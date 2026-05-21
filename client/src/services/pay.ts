@@ -4,6 +4,7 @@ import { isWeapp, isH5 } from '@/utils/platform'
 
 export interface PrepayParams {
   order_id: string
+  scene?: string
 }
 
 export interface WeappPrepay {
@@ -19,11 +20,20 @@ export interface H5PrepayResult {
   jsapi?: WeappPrepay
 }
 
+function getPayScene(): string {
+  if (isWeapp) return 'jsapi_mp'
+  if (isH5 && typeof navigator !== 'undefined' && /MicroMessenger/i.test(navigator.userAgent)) {
+    return 'jsapi_oa'
+  }
+  return 'h5'
+}
+
 export function createPrepay(params: PrepayParams) {
+  const scene = params.scene ?? getPayScene()
   return request<WeappPrepay | H5PrepayResult>('/c/pay/wxpay/prepay', {
     method: 'POST',
     auth: true,
-    data: params,
+    data: { ...params, scene },
   })
 }
 

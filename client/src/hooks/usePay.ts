@@ -14,6 +14,13 @@ export function usePay(options?: UsePayOptions) {
   const pay = useCallback(async (orderId: string) => {
     setLoading(true)
     try {
+      // If already paid (e.g. mock auto-pay or retry), skip to success
+      const statusBefore = await pollOrderStatus(orderId)
+      if (statusBefore.status === 'paid') {
+        options?.onSuccess?.(orderId)
+        return
+      }
+
       const prepay = await createPrepay({ order_id: orderId })
       await invokePay(prepay as WeappPrepay)
 

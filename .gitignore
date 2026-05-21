@@ -65,3 +65,5 @@ scripts/load-test/results/
 
 .mcp.json
 scripts/*.py
+# Volar/tsc generated Vue script artifacts
+admin/src/**/*.vue.js
