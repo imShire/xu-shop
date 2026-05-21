@@ -1475,6 +1475,26 @@ paths:
         "200":
           description: 商品详情
 
+  /c/products/hot:
+    get:
+      tags: [C端商品]
+      summary: 热门商品列表（MVP=累计销量 Top N，Redis 30min 缓存）
+      description: |
+        无需登录。MVP 阶段复用 `sales + virtual_sales` 累计销量排序；v2 升级后切换到滑窗算法 + 运营干预，路径与响应 schema 保持不变。
+        响应元素结构与 `/c/products` 列表项一致。
+      parameters:
+        - name: limit
+          in: query
+          description: 返回条数，默认 20，最大 50
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 50
+      responses:
+        "200":
+          description: 热门商品列表
+
   /c/favorites/{product_id}:
     post:
       tags: [C端商品]

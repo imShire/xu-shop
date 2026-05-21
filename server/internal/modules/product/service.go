@@ -143,6 +143,78 @@ func (s *Service) ListProducts(ctx context.Context, req ProductListReq) ([]Produ
 	return resp, total, nil
 }
 
+// hotProductsCacheTTL 热门商品缓存 TTL（30 分钟）。
+const hotProductsCacheTTL = 30 * time.Minute
+
+// ListHotProducts 热门商品列表（MVP：累计销量 Top N，Redis 30min 缓存，故障降级到 DB）。
+func (s *Service) ListHotProducts(ctx context.Context, limit int) ([]ProductResp, error) {
+	// clamp limit 到 [1, 50]，默认 20
+	if limit <= 0 {
+		limit = 20
+	}
+	if limit > 50 {
+		limit = 50
+	}
+
+	cacheKey := fmt.Sprintf("hot:products:limit:%d", limit)
+
+	// 1. 优先读 Redis（任何错误降级到 DB）
+	if s.rdb != nil {
+		if data, err := s.rdb.Get(ctx, cacheKey).Bytes(); err == nil {
+			var cached []ProductResp
+			if jsonErr := json.Unmarshal(data, &cached); jsonErr == nil {
+				return cached, nil
+			} else {
+				logger.L().Warn("hot cache unmarshal failed",
+					zap.String("key", cacheKey), zap.Error(jsonErr))
+				// 异步删除坏缓存，避免阻塞请求
+				go func(key string) {
+					bgCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+					defer cancel()
+					if delErr := s.rdb.Del(bgCtx, key).Err(); delErr != nil {
+						logger.L().Warn("hot cache del",
+							zap.String("key", key), zap.Error(delErr))
+					}
+				}(cacheKey)
+			}
+		}
+	}
+
+	// 2. miss / Redis 错误 → 查 DB（等价 sort=popular + status=onsale）
+	filter := ProductFilter{
+		Status:   "onsale",
+		Sort:     "popular",
+		Page:     1,
+		PageSize: limit,
+	}
+	products, _, err := s.productRepo.List(ctx, filter)
+	if err != nil {
+		logger.L().Error("hot products db", zap.Error(err))
+		return nil, errs.ErrInternal
+	}
+	resp := make([]ProductResp, len(products))
+	for i, p := range products {
+		resp[i] = toProductResp(&p)
+	}
+
+	// 3. 异步回写 Redis（独立 ctx + 5s timeout，失败仅 log warn）
+	if s.rdb != nil {
+		payload, jsonErr := json.Marshal(resp)
+		if jsonErr == nil {
+			go func(key string, data []byte) {
+				bgCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				defer cancel()
+				if err := s.rdb.SetEx(bgCtx, key, data, hotProductsCacheTTL).Err(); err != nil {
+					logger.L().Warn("hot products cache set",
+						zap.String("key", key), zap.Error(err))
+				}
+			}(cacheKey, payload)
+		}
+	}
+
+	return resp, nil
+}
+
 // GetProduct C 端商品详情（含 is_favorite）。
 func (s *Service) GetProduct(ctx context.Context, id int64, userIDs ...int64) (*ProductDetailResp, error) {
 	detail, err := s.productRepo.FindWithSpecs(ctx, id)

@@ -1,0 +1,50 @@
+.hot-page {
+  min-height: 100vh;
+  padding-bottom: 80px;
+  background-color: #f5f5f5;
+
+  &__header {
+    padding: 32px 24px 16px;
+    background: #fff;
+  }
+
+  &__title {
+    display: block;
+    color: var(--ds-color-text-primary);
+    font-size: 40px;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+
+  &__subtitle {
+    display: block;
+    margin-top: 8px;
+    color: var(--ds-color-text-secondary);
+    font-size: 24px;
+  }
+
+  &__grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+    padding: 16px;
+  }
+
+  &__card {
+    overflow: hidden;
+    border-radius: 16px;
+    background: #fff;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  }
+
+  &__card--skeleton {
+    padding: 24px 20px;
+  }
+
+  &__empty {
+    padding: 120px 24px;
+    text-align: center;
+    color: var(--ds-color-text-secondary);
+    font-size: 28px;
+  }
+}

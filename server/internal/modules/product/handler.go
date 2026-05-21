@@ -46,6 +46,32 @@ func (h *Handler) ListProducts(c *gin.Context) {
 	srv.OK(c, gin.H{"list": list, "total": total, "page": req.Page, "page_size": req.PageSize})
 }
 
+// ListHotProducts C 端热门商品列表（Redis 30min 缓存，sort=popular 等价）。
+func (h *Handler) ListHotProducts(c *gin.Context) {
+	limit := 20
+	if raw, ok := c.GetQuery("limit"); ok {
+		v, err := strconv.Atoi(raw)
+		if err != nil {
+			srv.FailParam(c, err)
+			return
+		}
+		limit = v
+	}
+	// 与 service 内 clamp 保持一致：[1,50]，<=0 → 20
+	if limit <= 0 {
+		limit = 20
+	}
+	if limit > 50 {
+		limit = 50
+	}
+	list, err := h.svc.ListHotProducts(c.Request.Context(), limit)
+	if err != nil {
+		failWith(c, err)
+		return
+	}
+	srv.OK(c, gin.H{"list": list, "total": len(list), "page": 1, "page_size": limit})
+}
+
 // GetProduct C 端商品详情。
 func (h *Handler) GetProduct(c *gin.Context) {
 	id := mustParamID(c, "id")

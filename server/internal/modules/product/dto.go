@@ -108,7 +108,7 @@ type ProductListReq struct {
 	CategoryID types.Int64Str `form:"category_id"`
 	Status     string         `form:"status"`
 	Keyword    string         `form:"keyword"`
-	Sort       string         `form:"sort"      binding:"omitempty,oneof=latest popular price_asc price_desc"`
+	Sort       string         `form:"sort"      binding:"omitempty,oneof=latest popular price_asc price_desc hot"`
 	Page       int            `form:"page"      binding:"min=0"`
 	PageSize   int            `form:"page_size" binding:"min=0,max=100"`
 	InStock    bool           `form:"in_stock"`

@@ -153,7 +153,7 @@ func (r *productRepoImpl) List(ctx context.Context, f ProductFilter) ([]Product,
 	switch f.Sort {
 	case "latest":
 		orderBy = "on_sale_at DESC NULLS LAST, created_at DESC, id DESC"
-	case "popular":
+	case "popular", "hot":
 		orderBy = "(COALESCE(sales, 0) + COALESCE(virtual_sales, 0)) DESC, sort DESC, id DESC"
 	case "price_asc":
 		orderBy = "price_cents ASC, id DESC"

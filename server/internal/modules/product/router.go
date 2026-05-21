@@ -20,6 +20,7 @@ func RegisterRoutes(r *gin.RouterGroup, h *Handler, rdb *redis.Client, db *gorm.
 	// C 端 - 公开
 	r.GET("/c/categories", middleware.PublicCache(300, 0), middleware.ETagMiddleware(), h.ListCategories)
 	r.GET("/c/products", middleware.PublicCache(30, 120), middleware.ETagMiddleware(), h.ListProducts)
+	r.GET("/c/products/hot", middleware.PublicCache(60, 300), middleware.ETagMiddleware(), h.ListHotProducts)
 	r.GET("/c/products/:id", middleware.PublicCache(60, 300), middleware.ETagMiddleware(), userOptionalAuth, h.GetProduct)
 
 	// C 端 - 需要用户登录

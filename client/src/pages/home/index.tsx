@@ -8,7 +8,7 @@ import { useShare } from '@/hooks/useShare'
 import { getBanners } from '@/services/banner'
 import { addToCart } from '@/services/cart'
 import { getNavIcons, type NavIcon } from '@/services/nav-icon'
-import { getCategories, getProducts } from '@/services/product'
+import { getCategories, getHotProducts, getProducts } from '@/services/product'
 import { getPageConfig } from '@/services/page-config'
 import type { PageModule } from '@/services/page-config'
 import ProductListModule from '@/components/modules/ProductListModule'
@@ -19,10 +19,13 @@ import type { Category, Product, ProductDetail, ProductListPage } from '@/types/
 import { buildProductListUrl, mapCategoryLinkToProductListUrl } from '@/utils/product-list'
 import { ArrowRight, Search } from '@/ui/icons'
 import { Skeleton } from '@/ui/nutui'
+import { ShieldCheck } from '@nutui/icons-react-taro'
 import './index.scss'
 
 const PAGE_SIZE = 8
 const FEATURE_LIMIT = 8
+
+const FEATURE_COLORS = ['#FF6B35', '#07C160', '#E93323', '#4A90D9', '#9B59B6']
 
 type HomeEntry = {
   id: string
@@ -160,6 +163,14 @@ export default function HomePage() {
     staleTime: 5 * 60 * 1000,
   })
 
+  const { data: hotPreviewData } = useQuery({
+    queryKey: ['hot-products', 'home-preview', 4],
+    queryFn: () => getHotProducts(4),
+    staleTime: 2 * 60 * 1000,
+  })
+
+  const hotPreview: Product[] = hotPreviewData?.list ?? []
+
   const dynamicModules: PageModule[] = pageConfig?.modules ?? []
 
   const allProducts: Product[] =
@@ -191,17 +202,20 @@ export default function HomePage() {
       onScrollToLower={handleScrollToLower}
       lowerThreshold={120}
     >
-      <View
-        className='home-page__search-shell'
-        onClick={() => void Taro.navigateTo({ url: buildProductListUrl() })}
-      >
-        <View className='home-page__search-field'>
-          <View className='home-page__search-icon'>
-            <Search width={18} height={18} />
-          </View>
-          <Text className='home-page__search-placeholder'>搜索商品 / 品牌</Text>
+      {/* Top bar: brand + search */}
+      <View className='home-page__topbar'>
+        <View className='home-page__brand'>
+          <Text className='home-page__brand-name'>徐记小铺</Text>
         </View>
-        <View className='home-page__search-button'>搜索</View>
+        <View
+          className='home-page__search-shell'
+          onClick={() => void Taro.navigateTo({ url: buildProductListUrl() })}
+        >
+          <View className='home-page__search-icon'>
+            <Search width={16} height={16} />
+          </View>
+          <Text className='home-page__search-placeholder'>搜索商品</Text>
+        </View>
       </View>
 
       {isBannerLoading && displayBanners.length === 0 ? (
@@ -257,22 +271,29 @@ export default function HomePage() {
           <View className='home-page__feature-grid'>
             {Array.from({ length: FEATURE_LIMIT }).map((_, index) => (
               <View key={index} className='home-page__feature-item home-page__feature-item--loading'>
-                <View className='home-page__feature-circle' />
+                <View
+                  className='home-page__feature-circle'
+                  style={{ background: FEATURE_COLORS[index % FEATURE_COLORS.length] }}
+                />
                 <View className='home-page__feature-text-skeleton' />
               </View>
             ))}
           </View>
         </View>
       ) : featureEntries.length > 0 ? (
+        <>
         <View className='home-page__feature-panel'>
           <View className='home-page__feature-grid'>
-            {featureEntries.map((item) => (
+            {featureEntries.map((item, index) => (
               <View
                 key={item.id}
                 className='home-page__feature-item'
                 onClick={() => handleFeatureClick(item)}
               >
-                <View className='home-page__feature-circle'>
+                <View
+                  className='home-page__feature-circle'
+                  style={{ background: FEATURE_COLORS[index % FEATURE_COLORS.length] }}
+                >
                   <Image
                     className='home-page__feature-image'
                     src={item.imageUrl}
@@ -284,6 +305,51 @@ export default function HomePage() {
             ))}
           </View>
         </View>
+
+        {/* Trust bar */}
+        <View className='home-page__trust-bar'>
+          {['正品保障', '极速配送', '售后无忧'].map((label) => (
+            <View key={label} className='home-page__trust-item'>
+              <ShieldCheck size={16} color='#07C160' />
+              <Text className='home-page__trust-text'>{label}</Text>
+            </View>
+          ))}
+        </View>
+        </>
+      ) : null}
+
+      {hotPreview.length > 0 ? (
+        <>
+          <View className='home-page__section-head'>
+            <Text className='home-page__section-title'>热门推荐</Text>
+            <View
+              className='home-page__section-more'
+              onClick={() => void Taro.navigateTo({ url: '/pages/marketing/hot/index' })}
+            >
+              <Text className='home-page__section-more-text'>查看全部</Text>
+              <ArrowRight width={14} height={14} />
+            </View>
+          </View>
+          <View className='home-page__product-grid'>
+            {hotPreview.map((product) => {
+              const meta = buildProductMeta(product, categories)
+              return (
+                <View key={`hot-${product.id}`} className='home-page__product-card'>
+                  <ProductCard
+                    mode='vertical'
+                    product={{
+                      id: product.id,
+                      title: product.title,
+                      main_image: product.main_image,
+                      price_cents: product.price_min_cents,
+                    }}
+                    tags={meta}
+                  />
+                </View>
+              )
+            })}
+          </View>
+        </>
       ) : null}
 
       {dynamicModules.map((module, index) => {

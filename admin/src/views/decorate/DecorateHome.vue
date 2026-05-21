@@ -143,6 +143,7 @@ onMounted(loadVersions)
               <el-select v-model="(mod.data as any).sort">
                 <el-option value="latest" label="最新" />
                 <el-option value="popular" label="最热" />
+                <el-option value="hot" label="热门" />
               </el-select>
             </el-form-item>
             <el-form-item label="展示数量">

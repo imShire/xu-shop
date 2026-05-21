@@ -56,6 +56,27 @@ func (s *Service) Save(ctx context.Context, adminID int64, req SaveConfigReq) (*
 		if !allowedTypes[m.Type] {
 			return nil, errs.ErrParam.WithMsg("不支持的模块类型：" + m.Type)
 		}
+		// 对 product_list 模块校验 sort 字段（允许缺省）
+		if m.Type == "product_list" && len(m.Data) > 0 {
+			var d struct {
+				Sort string `json:"sort"`
+			}
+			if err := json.Unmarshal(m.Data, &d); err != nil {
+				return nil, errs.ErrParam.WithMsg("product_list.data 必须是对象")
+			}
+			if d.Sort != "" {
+				allowedSorts := map[string]bool{
+					"latest":     true,
+					"popular":    true,
+					"price_asc":  true,
+					"price_desc": true,
+					"hot":        true,
+				}
+				if !allowedSorts[d.Sort] {
+					return nil, errs.ErrParam.WithMsg("不支持的商品排序：" + d.Sort)
+				}
+			}
+		}
 	}
 
 	// 对 rich_text 内容做 XSS 净化

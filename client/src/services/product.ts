@@ -26,3 +26,9 @@ export function getProducts(params?: {
 export function getProductDetail(id: string) {
   return request<ProductDetail>(`/c/products/${id}`, { auth: true })
 }
+
+export function getHotProducts(limit = 20) {
+  return request<ProductListPage>('/c/products/hot', {
+    params: { limit },
+  })
+}

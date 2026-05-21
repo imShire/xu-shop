@@ -7,6 +7,10 @@ export default defineAppConfig({
   ],
   subPackages: [
     {
+      root: 'pages/marketing',
+      pages: ['hot/index'],
+    },
+    {
       root: 'pages/product',
       pages: ['detail/index', 'list/index'],
     },
