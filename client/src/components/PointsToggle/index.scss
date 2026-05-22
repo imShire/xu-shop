@@ -1,0 +1,44 @@
+.points-toggle {
+  background: #fff;
+  padding: 24px 32px;
+
+  &__row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+  }
+
+  &__main {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__title {
+    font-size: 28px;
+    color: var(--ds-color-text-primary, #1f1f1f);
+    font-weight: 500;
+  }
+
+  &__sub {
+    font-size: 22px;
+    color: var(--ds-color-text-secondary, #888);
+  }
+
+  &__hint {
+    margin-top: 12px;
+    display: flex;
+    justify-content: space-between;
+    font-size: 24px;
+    color: var(--ds-color-text-secondary, #666);
+  }
+
+  &__amount {
+    color: var(--ds-color-accent, #f08c44);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+}

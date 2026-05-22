@@ -13,6 +13,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/hibiken/asynq"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 
@@ -28,15 +29,19 @@ import (
 	"github.com/xushop/xu-shop/internal/modules/cart"
 	"github.com/xushop/xu-shop/internal/modules/cms"
 	"github.com/xushop/xu-shop/internal/modules/decorate"
+	"github.com/xushop/xu-shop/internal/modules/distribution"
 	"github.com/xushop/xu-shop/internal/modules/inventory"
+	"github.com/xushop/xu-shop/internal/modules/marketing"
 	nav_icon "github.com/xushop/xu-shop/internal/modules/nav_icon"
 	"github.com/xushop/xu-shop/internal/modules/notification"
 	"github.com/xushop/xu-shop/internal/modules/order"
 	"github.com/xushop/xu-shop/internal/modules/payment"
 	privatedomain "github.com/xushop/xu-shop/internal/modules/private_domain"
 	"github.com/xushop/xu-shop/internal/modules/product"
+	"github.com/xushop/xu-shop/internal/modules/recall"
 	"github.com/xushop/xu-shop/internal/modules/shipping"
 	"github.com/xushop/xu-shop/internal/modules/stats"
+	"github.com/xushop/xu-shop/internal/modules/tag"
 	pkgjwt "github.com/xushop/xu-shop/internal/pkg/jwt"
 	pkgkdniao "github.com/xushop/xu-shop/internal/pkg/kdniao"
 	pkglogger "github.com/xushop/xu-shop/internal/pkg/logger"
@@ -259,6 +264,40 @@ func main() {
 		pdSvc := privatedomain.NewService(channelRepo, tagRepo, userTagRepo, shareRepo, qywxClient, app.Redis)
 		pdHandler := privatedomain.NewHandler(pdSvc)
 		privatedomain.RegisterRoutes(v1, pdHandler, app.Redis, app.DB, jwtCfg)
+
+		// marketing 模块（coupon + point + member）
+		mkSvc := marketing.NewService(app.DB)
+		marketing.RegisterRoutes(v1, mkSvc, app.Redis, app.DB, jwtCfg)
+
+		// tag 模块（用户标签）
+		tagSvc := tag.NewService(tag.NewRepo(app.DB), app.DB)
+		tagH := tag.NewHandler(tagSvc)
+		tag.RegisterRoutes(v1, tagH, app.Redis, app.DB, jwtCfg)
+
+		// recall 模块（召回活动）
+		recallSvc := recall.NewService(recall.NewRepo(app.DB), app.DB, app.Redis, tagSvc, mkSvc.Coupon, notifSvc)
+		recallH := recall.NewHandler(recallSvc)
+		recall.RegisterRoutes(v1, recallH, app.Redis, app.DB, jwtCfg)
+
+		// distribution 模块（分销 / 分享溯源 / 提现）
+		// 微信支付转账客户端：复用 wxpayClient 的底层实现
+		var transferClient pkgwxpay.TransferClient
+		if tc, ok := wxpayClient.(pkgwxpay.TransferClient); ok {
+			transferClient = tc
+		} else {
+			transferClient = &pkgwxpay.MockClient{}
+		}
+		distOpenid := &distOpenidAdapter{userRepo: accountUserRepo, wxMP: cfg.WxMP.AppID, wxOA: cfg.WxOA.AppID}
+		distSms := &distSmsAdapter{rdb: app.Redis, userRepo: accountUserRepo}
+		distCfg := distribution.Config{
+			TransferAppID:  cfg.WxMP.AppID,
+			TransferScene:  os.Getenv("WXPAY_TRANSFER_SCENE"),
+			TransferNotify: cfg.WxPay.NotifyURL + "/transfer",
+			ShareBaseURL:   os.Getenv("SHARE_BASE_URL"),
+		}
+		distSvc := distribution.NewService(distribution.NewRepo(app.DB), app.Redis, transferClient, distOpenid, distSms, nil, distCfg)
+		distH := distribution.NewHandler(distSvc, transferClient)
+		distribution.RegisterRoutes(v1, distH, app.Redis, app.DB, jwtCfg, r)
 
 		// stats 模块
 		statsRepo := stats.NewStatsRepo(app.DB)
@@ -539,3 +578,49 @@ func (a *aftersaleOrderRepoAdapter) UpdateCancelRequest(ctx context.Context, id 
 
 // suppress unused imports
 var _ = fmt.Sprintf
+
+// distOpenidAdapter 实现 distribution.UserOpenidGetter。
+// 优先返回 MP openid 与公众平台 appID（WxMP），无则回落 H5（WxOA）。
+type distOpenidAdapter struct {
+	userRepo account.UserRepo
+	wxMP     string
+	wxOA     string
+}
+
+func (a *distOpenidAdapter) GetOpenidForTransfer(ctx context.Context, userID int64) (string, string, error) {
+	u, err := a.userRepo.FindByID(ctx, userID)
+	if err != nil {
+		return "", "", err
+	}
+	if u.OpenidMP != nil && *u.OpenidMP != "" {
+		return *u.OpenidMP, a.wxMP, nil
+	}
+	if u.OpenidH5 != nil && *u.OpenidH5 != "" {
+		return *u.OpenidH5, a.wxOA, nil
+	}
+	return "", "", fmt.Errorf("user %d has no openid for transfer", userID)
+}
+
+// distSmsAdapter 实现 distribution.SmsSender。
+// 开发阶段：仅打日志（参考 account.SendSmsCode 的 dev 行为）。
+type distSmsAdapter struct {
+	rdb      *redis.Client
+	userRepo account.UserRepo
+}
+
+func (a *distSmsAdapter) SendWithdrawSms(ctx context.Context, userID int64, code string) error {
+	u, err := a.userRepo.FindByID(ctx, userID)
+	if err != nil {
+		return err
+	}
+	phone := ""
+	if u.Phone != nil {
+		phone = *u.Phone
+	}
+	pkglogger.L().Info("withdraw sms (dev)",
+		zap.Int64("user_id", userID),
+		zap.String("phone", phone),
+		zap.String("code", code),
+	)
+	return nil
+}

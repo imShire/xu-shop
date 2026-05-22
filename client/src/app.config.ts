@@ -24,7 +24,32 @@ export default defineAppConfig({
     },
     {
       root: 'pages/user',
-      pages: ['favorite/index', 'history/index', 'settings/index', 'balance/index'],
+      pages: [
+        'favorite/index',
+        'history/index',
+        'settings/index',
+        'balance/index',
+        'coupons/index',
+        'points/index',
+        'points/transactions/index',
+        'member/index',
+      ],
+    },
+    {
+      root: 'pages/coupon',
+      pages: ['center/index', 'redeem/index'],
+    },
+    {
+      root: 'pages/distributor',
+      pages: [
+        'apply/index',
+        'center/index',
+        'commissions/index',
+        'withdraw/index',
+        'withdraws/index',
+        'funnel/index',
+        'poster/index',
+      ],
     },
     {
       root: 'pages/auth',

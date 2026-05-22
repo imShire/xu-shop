@@ -43,3 +43,12 @@ var (
 func (e *AppError) WithMsg(msg string) *AppError {
 	return &AppError{Code: e.Code, Message: msg, HTTPStatus: e.HTTPStatus}
 }
+
+// Is 通过错误码比较两个 AppError 是否同源，使 errors.Is(WithMsg(...), original) 成立。
+func (e *AppError) Is(target error) bool {
+	t, ok := target.(*AppError)
+	if !ok {
+		return false
+	}
+	return e.Code == t.Code
+}

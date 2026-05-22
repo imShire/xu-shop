@@ -621,6 +621,300 @@ components:
           items:
             $ref: '#/components/schemas/SkuInput'
 
+    # ========== v1.2 PRD 16 会员体系 ==========
+    CouponTemplate:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        type: { type: string, enum: [amount, discount, no_threshold, exchange] }
+        value_cents: { type: integer, format: int64 }
+        discount_rate: { type: number, format: float, nullable: true }
+        max_discount_cents: { type: integer, format: int64 }
+        min_amount_cents: { type: integer, format: int64 }
+        scope_type: { type: string, enum: [all, category, spu, sku] }
+        scope_targets:
+          type: array
+          items: { type: string }
+        validity_mode: { type: string, enum: [absolute, relative] }
+        valid_from: { type: string, format: date-time, nullable: true }
+        valid_to: { type: string, format: date-time, nullable: true }
+        valid_days: { type: integer, nullable: true }
+        total_quota: { type: integer, format: int64 }
+        claimed_count: { type: integer, format: int64 }
+        used_count: { type: integer, format: int64 }
+        per_user_limit: { type: integer }
+        stack_with_points: { type: boolean }
+        status: { type: string, enum: [draft, online, offline] }
+        claim_start_at: { type: string, format: date-time, nullable: true }
+        claim_end_at: { type: string, format: date-time, nullable: true }
+    CouponTemplateForm:
+      type: object
+      required: [name, type]
+      properties:
+        name: { type: string, maxLength: 128 }
+        description: { type: string }
+        type: { type: string, enum: [amount, discount, no_threshold, exchange] }
+        value_cents: { type: integer, format: int64 }
+        discount_rate: { type: number, format: float, nullable: true }
+        max_discount_cents: { type: integer, format: int64 }
+        min_amount_cents: { type: integer, format: int64 }
+        scope_type: { type: string, enum: [all, category, spu, sku] }
+        scope_targets:
+          type: array
+          items: { type: string }
+        validity_mode: { type: string, enum: [absolute, relative] }
+        valid_from: { type: string, format: date-time, nullable: true }
+        valid_to: { type: string, format: date-time, nullable: true }
+        valid_days: { type: integer, nullable: true }
+        total_quota: { type: integer, format: int64 }
+        per_user_limit: { type: integer }
+        per_order_limit: { type: integer }
+        stack_with_points: { type: boolean }
+        claim_start_at: { type: string, format: date-time, nullable: true }
+        claim_end_at: { type: string, format: date-time, nullable: true }
+    UserCoupon:
+      type: object
+      properties:
+        id: { type: string }
+        coupon_template_id: { type: string }
+        name: { type: string }
+        type: { type: string }
+        value_cents: { type: integer, format: int64 }
+        min_amount_cents: { type: integer, format: int64 }
+        status: { type: string, enum: [unused, locked, used, expired] }
+        order_id: { type: string, nullable: true }
+        claimed_at: { type: string, format: date-time }
+        expire_at: { type: string, format: date-time }
+        used_at: { type: string, format: date-time, nullable: true }
+    PointAccount:
+      type: object
+      properties:
+        balance: { type: integer, format: int64 }
+        locked: { type: integer, format: int64 }
+        total_earned: { type: integer, format: int64 }
+        total_spent: { type: integer, format: int64 }
+    PointTransaction:
+      type: object
+      properties:
+        id: { type: string }
+        change: { type: integer, format: int64 }
+        type: { type: string, enum: [earn, spend, expire, refund, admin_adjust, freeze, unfreeze] }
+        ref_type: { type: string, nullable: true }
+        ref_id: { type: string, nullable: true }
+        balance_after: { type: integer, format: int64 }
+        expire_at: { type: string, format: date-time, nullable: true }
+        reason: { type: string }
+        created_at: { type: string, format: date-time }
+    PointRule:
+      type: object
+      properties:
+        code: { type: string }
+        enabled: { type: boolean }
+        config: { type: object, additionalProperties: true }
+    PointAdjustTicketForm:
+      type: object
+      required: [user_id, change, reason]
+      properties:
+        user_id: { type: string }
+        change: { type: integer, format: int64 }
+        reason: { type: string, maxLength: 500 }
+    MemberLevel:
+      type: object
+      properties:
+        code: { type: string }
+        name: { type: string }
+        threshold_amount_cents: { type: integer, format: int64 }
+        points_multiplier: { type: number, format: float }
+        benefits: { type: object, additionalProperties: true }
+        sort: { type: integer }
+        is_active: { type: boolean }
+    OrderQuoteReq:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            required: [sku_id, qty]
+            properties:
+              sku_id: { type: string }
+              qty: { type: integer }
+        address_id: { type: string, nullable: true }
+        coupon_id: { type: string, nullable: true }
+        point_used: { type: integer, default: 0 }
+    OrderQuoteResp:
+      type: object
+      properties:
+        goods_amount_cents: { type: integer, format: int64 }
+        freight_cents: { type: integer, format: int64 }
+        coupon_amount_cents: { type: integer, format: int64 }
+        point_used: { type: integer }
+        point_deduct_cents: { type: integer, format: int64 }
+        pay_amount_cents: { type: integer, format: int64 }
+        point_earn_estimated: { type: integer }
+        applicable_coupons:
+          type: array
+          items: { $ref: '#/components/schemas/UserCoupon' }
+        max_point_used: { type: integer }
+
+    # ========== v1.2 PRD 17 标签 + 召回 ==========
+    UserTag:
+      type: object
+      properties:
+        code: { type: string }
+        name: { type: string }
+        category: { type: string, enum: [rfm, lifecycle, category_pref, price_band, source, business, member, system] }
+        parent_code: { type: string, nullable: true }
+        color: { type: string, nullable: true }
+        description: { type: string }
+        source: { type: string, enum: [auto, manual] }
+        config: { type: object, additionalProperties: true }
+        enabled: { type: boolean }
+        sort: { type: integer }
+    UserTagForm:
+      type: object
+      required: [code, name, category]
+      properties:
+        code: { type: string, maxLength: 64 }
+        name: { type: string, maxLength: 64 }
+        category: { type: string }
+        parent_code: { type: string, nullable: true }
+        color: { type: string, nullable: true }
+        description: { type: string }
+        source: { type: string, enum: [auto, manual], default: manual }
+        config: { type: object, additionalProperties: true }
+        enabled: { type: boolean, default: true }
+        sort: { type: integer, default: 0 }
+    RecallCampaign:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        goal: { type: string }
+        audience_filter: { type: object, additionalProperties: true }
+        actions:
+          type: array
+          items: { type: object, additionalProperties: true }
+        trigger_type: { type: string, enum: [cron, event, immediate] }
+        trigger_config: { type: object, additionalProperties: true }
+        effective_from: { type: string, format: date-time, nullable: true }
+        effective_to: { type: string, format: date-time, nullable: true }
+        throttle_per_user_days: { type: integer }
+        daily_quota: { type: integer, format: int64 }
+        total_quota: { type: integer, format: int64 }
+        attribution_window_days: { type: integer }
+        status: { type: string, enum: [draft, online, paused, closed] }
+    RecallCampaignForm:
+      type: object
+      required: [name, trigger_type, audience_filter, actions]
+      properties:
+        name: { type: string, maxLength: 128 }
+        goal: { type: string }
+        audience_filter: { type: object, additionalProperties: true }
+        actions:
+          type: array
+          items: { type: object, additionalProperties: true }
+        trigger_type: { type: string, enum: [cron, event, immediate] }
+        trigger_config: { type: object, additionalProperties: true }
+        effective_from: { type: string, format: date-time, nullable: true }
+        effective_to: { type: string, format: date-time, nullable: true }
+        throttle_per_user_days: { type: integer, default: 7 }
+        daily_quota: { type: integer, format: int64, default: 0 }
+        total_quota: { type: integer, format: int64, default: 0 }
+        attribution_window_days: { type: integer, default: 7 }
+    RecallLog:
+      type: object
+      properties:
+        id: { type: string }
+        campaign_id: { type: string }
+        user_id: { type: string }
+        triggered_at: { type: string, format: date-time }
+        opened_at: { type: string, format: date-time, nullable: true }
+        converted_order_id: { type: string, nullable: true }
+        converted_at: { type: string, format: date-time, nullable: true }
+        converted_gmv_cents: { type: integer, format: int64 }
+
+    # ========== v1.2 PRD 18 分销 + 提现 ==========
+    ShareLink:
+      type: object
+      properties:
+        id: { type: string }
+        scene: { type: string, enum: [product, activity, brand, invite_register] }
+        target_id: { type: string, nullable: true }
+        channel_code: { type: string }
+        short_token: { type: string }
+        h5_url: { type: string }
+        wxapp_path: { type: string }
+        expire_at: { type: string, format: date-time }
+        click_count: { type: integer, format: int64 }
+        register_count: { type: integer, format: int64 }
+        order_count: { type: integer, format: int64 }
+        gmv_cents: { type: integer, format: int64 }
+    ShareLinkForm:
+      type: object
+      required: [scene]
+      properties:
+        scene: { type: string, enum: [product, activity, brand, invite_register] }
+        target_id: { type: string, nullable: true }
+        channel_code: { type: string, default: other }
+        ttl_days: { type: integer, default: 30 }
+    Distributor:
+      type: object
+      properties:
+        id: { type: string }
+        user_id: { type: string }
+        nickname: { type: string }
+        avatar: { type: string }
+        level: { type: string, enum: [normal, senior] }
+        rate: { type: number, format: float }
+        status: { type: string, enum: [pending, active, disabled] }
+        apply_at: { type: string, format: date-time }
+        approved_at: { type: string, format: date-time, nullable: true }
+    DistributorApplyForm:
+      type: object
+      required: [real_name, phone]
+      properties:
+        real_name: { type: string }
+        phone: { type: string }
+        reason: { type: string, maxLength: 200 }
+    CommissionRecord:
+      type: object
+      properties:
+        id: { type: string }
+        order_id: { type: string }
+        order_no: { type: string }
+        distributor_user_id: { type: string }
+        level: { type: string }
+        rate: { type: number, format: float }
+        base_amount_cents: { type: integer, format: int64 }
+        amount_cents: { type: integer, format: int64 }
+        status: { type: string, enum: [pending, locked, settled, canceled, suspect] }
+        suspect_reason: { type: string, nullable: true }
+        freeze_until: { type: string, format: date-time }
+        settled_at: { type: string, format: date-time, nullable: true }
+        created_at: { type: string, format: date-time }
+    WithdrawOrder:
+      type: object
+      properties:
+        id: { type: string }
+        withdraw_no: { type: string }
+        amount_cents: { type: integer, format: int64 }
+        channel: { type: string, enum: [wx_transfer] }
+        status: { type: string, enum: [pending, processing, success, failed, canceled] }
+        wx_transfer_no: { type: string, nullable: true }
+        wx_transfer_state: { type: string, nullable: true }
+        fail_reason: { type: string, nullable: true }
+        applied_at: { type: string, format: date-time }
+        finished_at: { type: string, format: date-time, nullable: true }
+    WithdrawForm:
+      type: object
+      required: [amount_cents, sms_code]
+      properties:
+        amount_cents: { type: integer, format: int64 }
+        sms_code: { type: string }
+
   parameters:
     IdempotencyKey:
       name: Idempotency-Key
@@ -3493,3 +3787,678 @@ paths:
       responses:
         "200":
           description: Prometheus 格式指标文本
+
+  # ========== v1.2 PRD 16 会员 / 优惠券（C 端） ==========
+  /c/coupons/available:
+    get:
+      tags: [C端会员]
+      summary: 领券中心
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - { name: page, in: query, schema: { type: integer, default: 1 } }
+        - { name: page_size, in: query, schema: { type: integer, default: 20 } }
+      responses:
+        "200":
+          description: ok
+          content: { application/json: { schema: { allOf: [ { $ref: '#/components/schemas/Response' }, { properties: { data: { $ref: '#/components/schemas/PagedResult' } } } ] } } }
+  /c/coupons/{template_id}/claim:
+    post:
+      tags: [C端会员]
+      summary: 领取优惠券
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - { name: template_id, in: path, required: true, schema: { type: string } }
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        "200": { description: ok, content: { application/json: { schema: { $ref: '#/components/schemas/BaseResp' } } } }
+  /c/coupons/redeem:
+    post:
+      tags: [C端会员]
+      summary: 兑换码兑换
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              properties:
+                code: { type: string }
+      responses:
+        "200": { description: ok, content: { application/json: { schema: { $ref: '#/components/schemas/BaseResp' } } } }
+  /c/me/coupons:
+    get:
+      tags: [C端会员]
+      summary: 我的券列表
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - { name: status, in: query, schema: { type: string, enum: [unused, locked, used, expired] } }
+        - { name: page, in: query, schema: { type: integer, default: 1 } }
+        - { name: page_size, in: query, schema: { type: integer, default: 20 } }
+      responses:
+        "200": { description: ok }
+  /c/me/points/summary:
+    get:
+      tags: [C端会员]
+      summary: 积分概览
+      security: [{ BearerAuth: [] }]
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Response'
+                  - properties: { data: { $ref: '#/components/schemas/PointAccount' } }
+  /c/me/points/transactions:
+    get:
+      tags: [C端会员]
+      summary: 积分流水
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - { name: type, in: query, schema: { type: string } }
+        - { name: page, in: query, schema: { type: integer, default: 1 } }
+        - { name: page_size, in: query, schema: { type: integer, default: 20 } }
+      responses:
+        "200": { description: ok }
+  /c/me/sign-in:
+    post:
+      tags: [C端会员]
+      summary: 每日签到
+      security: [{ BearerAuth: [] }]
+      responses:
+        "200": { description: ok, content: { application/json: { schema: { $ref: '#/components/schemas/BaseResp' } } } }
+  /c/me/level:
+    get:
+      tags: [C端会员]
+      summary: 我的会员等级
+      security: [{ BearerAuth: [] }]
+      responses:
+        "200": { description: ok }
+  /c/checkout/options:
+    get:
+      tags: [C端订单]
+      summary: 结算页可用券与积分上限（v1.2）
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - { name: sku_ids, in: query, schema: { type: string }, description: "逗号分隔" }
+        - { name: qty_list, in: query, schema: { type: string } }
+      responses:
+        "200": { description: ok }
+  /c/orders/quote:
+    post:
+      tags: [C端订单]
+      summary: 下单前结算预算（券+积分+运费试算，v1.2）
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/OrderQuoteReq' }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Response'
+                  - properties: { data: { $ref: '#/components/schemas/OrderQuoteResp' } }
+
+  # ========== v1.2 PRD 16 admin 会员 ==========
+  /admin/coupon-templates:
+    get:
+      tags: [Admin会员]
+      summary: 优惠券模板列表
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - { name: status, in: query, schema: { type: string } }
+        - { name: page, in: query, schema: { type: integer, default: 1 } }
+      responses: { "200": { description: ok } }
+    post:
+      tags: [Admin会员]
+      summary: 创建券模板
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json: { schema: { $ref: '#/components/schemas/CouponTemplateForm' } }
+      responses: { "200": { description: ok } }
+  /admin/coupon-templates/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    get:
+      tags: [Admin会员]
+      summary: 券模板详情
+      security: [{ BearerAuth: [] }]
+      responses: { "200": { description: ok } }
+    put:
+      tags: [Admin会员]
+      summary: 修改券模板（仅 draft）
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/CouponTemplateForm' } } }
+      responses: { "200": { description: ok } }
+  /admin/coupon-templates/{id}/online:
+    post:
+      tags: [Admin会员]
+      summary: 上架
+      security: [{ BearerAuth: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses: { "200": { description: ok } }
+  /admin/coupon-templates/{id}/offline:
+    post:
+      tags: [Admin会员]
+      summary: 下架
+      security: [{ BearerAuth: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses: { "200": { description: ok } }
+  /admin/coupon-grant-tasks:
+    post:
+      tags: [Admin会员]
+      summary: 创建定向发放任务
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [template_id, filter]
+              properties:
+                template_id: { type: string }
+                filter: { type: object, additionalProperties: true }
+      responses: { "200": { description: ok } }
+  /admin/coupon-grant-tasks/{id}:
+    get:
+      tags: [Admin会员]
+      summary: 发放任务详情（含失败明细 OSS 链接）
+      security: [{ BearerAuth: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses: { "200": { description: ok } }
+  /admin/coupon-redeem-codes/batches:
+    post:
+      tags: [Admin会员]
+      summary: 生成兑换码批次
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [template_id, count]
+              properties:
+                template_id: { type: string }
+                count: { type: integer, maximum: 100000 }
+      responses: { "200": { description: ok } }
+  /admin/user-coupons:
+    get:
+      tags: [Admin会员]
+      summary: 用户券查询
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - { name: user_id, in: query, schema: { type: string } }
+        - { name: status, in: query, schema: { type: string } }
+      responses: { "200": { description: ok } }
+  /admin/point-rules:
+    get:
+      tags: [Admin会员]
+      summary: 积分规则列表
+      security: [{ BearerAuth: [] }]
+      responses: { "200": { description: ok } }
+  /admin/point-rules/{code}:
+    put:
+      tags: [Admin会员]
+      summary: 更新单条积分规则
+      security: [{ BearerAuth: [] }]
+      parameters: [{ name: code, in: path, required: true, schema: { type: string } }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                enabled: { type: boolean }
+                config: { type: object, additionalProperties: true }
+      responses: { "200": { description: ok } }
+  /admin/point-transactions:
+    get:
+      tags: [Admin会员]
+      summary: 积分流水查询
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - { name: user_id, in: query, schema: { type: string } }
+        - { name: type, in: query, schema: { type: string } }
+        - { name: start, in: query, schema: { type: string, format: date-time } }
+        - { name: end, in: query, schema: { type: string, format: date-time } }
+      responses: { "200": { description: ok } }
+  /admin/point-adjust-tickets:
+    get:
+      tags: [Admin会员]
+      summary: 调整工单列表
+      security: [{ BearerAuth: [] }]
+      responses: { "200": { description: ok } }
+    post:
+      tags: [Admin会员]
+      summary: 申请积分调整工单
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/PointAdjustTicketForm' } } }
+      responses: { "200": { description: ok } }
+  /admin/point-adjust-tickets/{id}/approve:
+    post:
+      tags: [Admin会员]
+      summary: 审批通过（不可与申请人为同一人）
+      security: [{ BearerAuth: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses: { "200": { description: ok } }
+  /admin/point-adjust-tickets/{id}/reject:
+    post:
+      tags: [Admin会员]
+      summary: 审批拒绝
+      security: [{ BearerAuth: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses: { "200": { description: ok } }
+  /admin/member-levels:
+    get:
+      tags: [Admin会员]
+      summary: 会员等级列表
+      security: [{ BearerAuth: [] }]
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Response'
+                  - properties:
+                      data:
+                        type: array
+                        items: { $ref: '#/components/schemas/MemberLevel' }
+  /admin/member-levels/{code}:
+    put:
+      tags: [Admin会员]
+      summary: 更新会员等级
+      security: [{ BearerAuth: [] }]
+      parameters: [{ name: code, in: path, required: true, schema: { type: string } }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/MemberLevel' } } }
+      responses: { "200": { description: ok } }
+
+  # ========== v1.2 PRD 17 标签 + 召回（admin） ==========
+  /admin/user-tags:
+    get:
+      tags: [Admin标签]
+      summary: 标签字典
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - { name: category, in: query, schema: { type: string } }
+        - { name: source, in: query, schema: { type: string } }
+      responses: { "200": { description: ok } }
+    post:
+      tags: [Admin标签]
+      summary: 新增标签
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/UserTagForm' } } }
+      responses: { "200": { description: ok } }
+  /admin/user-tags/{code}:
+    put:
+      tags: [Admin标签]
+      summary: 更新标签
+      security: [{ BearerAuth: [] }]
+      parameters: [{ name: code, in: path, required: true, schema: { type: string } }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/UserTagForm' } } }
+      responses: { "200": { description: ok } }
+    delete:
+      tags: [Admin标签]
+      summary: 停用标签（manual 才允许，且无关系绑定）
+      security: [{ BearerAuth: [] }]
+      parameters: [{ name: code, in: path, required: true, schema: { type: string } }]
+      responses: { "200": { description: ok } }
+  /admin/users/{user_id}/tags:
+    get:
+      tags: [Admin标签]
+      summary: 查询某用户标签
+      security: [{ BearerAuth: [] }]
+      parameters: [{ name: user_id, in: path, required: true, schema: { type: string } }]
+      responses: { "200": { description: ok } }
+    post:
+      tags: [Admin标签]
+      summary: 给用户加标签（manual）
+      security: [{ BearerAuth: [] }]
+      parameters: [{ name: user_id, in: path, required: true, schema: { type: string } }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [tag_code]
+              properties:
+                tag_code: { type: string }
+                expire_at: { type: string, format: date-time, nullable: true }
+      responses: { "200": { description: ok } }
+  /admin/users/{user_id}/tags/{tag_code}:
+    delete:
+      tags: [Admin标签]
+      summary: 移除用户标签
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - { name: user_id, in: path, required: true, schema: { type: string } }
+        - { name: tag_code, in: path, required: true, schema: { type: string } }
+      responses: { "200": { description: ok } }
+  /admin/audience/preview:
+    post:
+      tags: [Admin标签]
+      summary: 人群预估（标签筛选 → 人数）
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                filter: { type: object, additionalProperties: true }
+      responses: { "200": { description: ok } }
+  /admin/recall-campaigns:
+    get:
+      tags: [Admin召回]
+      summary: 召回活动列表
+      security: [{ BearerAuth: [] }]
+      responses: { "200": { description: ok } }
+    post:
+      tags: [Admin召回]
+      summary: 新建召回活动
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/RecallCampaignForm' } } }
+      responses: { "200": { description: ok } }
+  /admin/recall-campaigns/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    get:
+      tags: [Admin召回]
+      summary: 召回活动详情
+      security: [{ BearerAuth: [] }]
+      responses: { "200": { description: ok } }
+    put:
+      tags: [Admin召回]
+      summary: 修改活动（draft/paused 状态）
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/RecallCampaignForm' } } }
+      responses: { "200": { description: ok } }
+  /admin/recall-campaigns/{id}/online:
+    post:
+      tags: [Admin召回]
+      summary: 上线活动（需审批）
+      security: [{ BearerAuth: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses: { "200": { description: ok } }
+  /admin/recall-campaigns/{id}/pause:
+    post:
+      tags: [Admin召回]
+      summary: 暂停活动
+      security: [{ BearerAuth: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses: { "200": { description: ok } }
+  /admin/recall-campaigns/{id}/close:
+    post:
+      tags: [Admin召回]
+      summary: 关闭活动
+      security: [{ BearerAuth: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses: { "200": { description: ok } }
+  /admin/recall-campaigns/{id}/funnel:
+    get:
+      tags: [Admin召回]
+      summary: 漏斗（触达 / 打开 / 转化 / GMV）
+      security: [{ BearerAuth: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses: { "200": { description: ok } }
+  /admin/recall-logs:
+    get:
+      tags: [Admin召回]
+      summary: 召回日志查询 / 导出
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - { name: campaign_id, in: query, schema: { type: string } }
+        - { name: user_id, in: query, schema: { type: string } }
+        - { name: export, in: query, schema: { type: boolean }, description: "true 时直接返回 CSV 下载链接" }
+      responses: { "200": { description: ok } }
+
+  # ========== v1.2 PRD 18 分享 / 分销（C 端） ==========
+  /c/share/links:
+    post:
+      tags: [C端分销]
+      summary: 创建分享链接（任何登录用户）
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/ShareLinkForm' } } }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/Response'
+                  - properties: { data: { $ref: '#/components/schemas/ShareLink' } }
+  /c/share/poster:
+    post:
+      tags: [C端分销]
+      summary: 生成海报图片（OSS 临时 URL）
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [share_link_id]
+              properties:
+                share_link_id: { type: string }
+      responses: { "200": { description: ok } }
+  /s/{short_token}:
+    get:
+      tags: [开放接口]
+      summary: 短链 302 跳转 + 写入 share_click（H5 入口）
+      parameters: [{ name: short_token, in: path, required: true, schema: { type: string } }]
+      responses:
+        "302":
+          description: 重定向到具体业务页
+        "404": { description: 无效短链 }
+  /c/distributors/apply:
+    post:
+      tags: [C端分销]
+      summary: 申请成为分销员
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/DistributorApplyForm' } } }
+      responses: { "200": { description: ok } }
+  /c/distributors/me:
+    get:
+      tags: [C端分销]
+      summary: 我的分销员资料
+      security: [{ BearerAuth: [] }]
+      responses: { "200": { description: ok } }
+  /c/distributors/me/commissions:
+    get:
+      tags: [C端分销]
+      summary: 我的佣金列表
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - { name: status, in: query, schema: { type: string } }
+        - { name: page, in: query, schema: { type: integer, default: 1 } }
+      responses: { "200": { description: ok } }
+  /c/distributors/me/withdraws:
+    get:
+      tags: [C端分销]
+      summary: 我的提现工单
+      security: [{ BearerAuth: [] }]
+      responses: { "200": { description: ok } }
+    post:
+      tags: [C端分销]
+      summary: 申请提现（需 sms_code 二次确认）
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/WithdrawForm' } } }
+      responses: { "200": { description: ok } }
+  /c/distributors/me/withdraw-sms:
+    post:
+      tags: [C端分销]
+      summary: 发送提现短信验证码（5min 有效，5/天）
+      security: [{ BearerAuth: [] }]
+      responses: { "200": { description: ok } }
+
+  # ========== v1.2 PRD 18 分销（admin） ==========
+  /admin/distributors:
+    get:
+      tags: [Admin分销]
+      summary: 分销员列表
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - { name: status, in: query, schema: { type: string } }
+        - { name: level, in: query, schema: { type: string } }
+      responses: { "200": { description: ok } }
+  /admin/distributors/{id}/approve:
+    post:
+      tags: [Admin分销]
+      summary: 通过申请
+      security: [{ BearerAuth: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses: { "200": { description: ok } }
+  /admin/distributors/{id}/reject:
+    post:
+      tags: [Admin分销]
+      summary: 拒绝申请
+      security: [{ BearerAuth: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses: { "200": { description: ok } }
+  /admin/distributors/{id}/disable:
+    post:
+      tags: [Admin分销]
+      summary: 停用分销员（保留历史）
+      security: [{ BearerAuth: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses: { "200": { description: ok } }
+  /admin/distributors/{id}/rate:
+    put:
+      tags: [Admin分销]
+      summary: 设置专属费率
+      security: [{ BearerAuth: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                rate_override: { type: number, format: float, nullable: true }
+      responses: { "200": { description: ok } }
+  /admin/commissions:
+    get:
+      tags: [Admin分销]
+      summary: 佣金记录（含 suspect 列表）
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - { name: status, in: query, schema: { type: string } }
+        - { name: distributor_user_id, in: query, schema: { type: string } }
+      responses: { "200": { description: ok } }
+  /admin/commissions/{id}/release:
+    post:
+      tags: [Admin分销]
+      summary: suspect 解除（恢复 pending）
+      security: [{ BearerAuth: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses: { "200": { description: ok } }
+  /admin/commissions/{id}/cancel:
+    post:
+      tags: [Admin分销]
+      summary: 作废佣金（人工判定刷单）
+      security: [{ BearerAuth: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason: { type: string }
+      responses: { "200": { description: ok } }
+  /admin/withdraws:
+    get:
+      tags: [Admin分销]
+      summary: 提现工单列表
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - { name: status, in: query, schema: { type: string } }
+      responses: { "200": { description: ok } }
+  /admin/withdraws/{id}/retry:
+    post:
+      tags: [Admin分销]
+      summary: 失败工单重试（重新调起 wxpay.Transfer）
+      security: [{ BearerAuth: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses: { "200": { description: ok } }
+  /admin/share-links:
+    get:
+      tags: [Admin分销]
+      summary: 分享链接监控
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - { name: user_id, in: query, schema: { type: string } }
+        - { name: scene, in: query, schema: { type: string } }
+      responses: { "200": { description: ok } }
+  /admin/distribution/dashboard:
+    get:
+      tags: [Admin分销]
+      summary: 分销全链路看板
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - { name: start, in: query, schema: { type: string, format: date } }
+        - { name: end, in: query, schema: { type: string, format: date } }
+      responses: { "200": { description: ok } }
+
+  # ========== v1.2 PRD 18 微信商家转账回调 ==========
+  /notify/wxpay/transfer:
+    post:
+      tags: [开放接口]
+      summary: 微信商家转账到零钱回调
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: true }
+      responses:
+        "200":
+          description: SUCCESS
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code: { type: string, example: SUCCESS }

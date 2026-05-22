@@ -8,7 +8,13 @@ export async function sendSmsCode(phone: string, purpose: 'register' | 'reset') 
   })
 }
 
-export async function phoneRegister(data: { phone: string; code: string; password: string }) {
+export async function phoneRegister(data: {
+  phone: string
+  code: string
+  password: string
+  /** 邀请来源 trace id（来自分享链接，30 天前归因） */
+  trace_id?: string
+}) {
   return request<{ token: string; user: User }>('/c/auth/phone-register', {
     method: 'POST',
     data,

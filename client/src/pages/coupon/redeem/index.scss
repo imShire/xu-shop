@@ -1,0 +1,41 @@
+.coupon-redeem {
+  min-height: 100vh;
+  background: #f5f5f5;
+  padding: 32px;
+
+  &__card {
+    background: #fff;
+    border-radius: 12px;
+    padding: 40px 32px;
+  }
+
+  &__title {
+    font-size: 32px;
+    font-weight: 600;
+    margin-bottom: 12px;
+  }
+
+  &__hint {
+    font-size: 24px;
+    color: var(--ds-color-text-secondary, #888);
+    margin-bottom: 32px;
+    display: block;
+  }
+
+  &__input {
+    border: 1px solid #e5e5e5;
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin-bottom: 32px;
+  }
+
+  &__notice {
+    margin-top: 32px;
+    padding: 24px;
+    background: #fef3e9;
+    border-radius: 8px;
+    color: #c87538;
+    font-size: 22px;
+    line-height: 1.6;
+  }
+}

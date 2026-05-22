@@ -2,6 +2,11 @@ export function formatPrice(cents: number): string {
   return (cents / 100).toFixed(2)
 }
 
+/** Yuan-formatted price with leading ¥ sign. e.g. 12345 → "¥123.45" */
+export function formatYuan(cents: number): string {
+  return `¥${formatPrice(cents)}`
+}
+
 /**
  * Format a virtual sales count for display.
  * e.g. 12345 → "1.2万+" ; 500 → "500+"

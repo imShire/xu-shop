@@ -1,4 +1,4 @@
-import type { Order } from '@/types/biz'
+import type { Order, OrderQuoteReq, OrderQuoteResp } from '@/types/biz'
 import { request } from '@/services/api'
 
 export interface CreateOrderParams {
@@ -7,6 +7,9 @@ export interface CreateOrderParams {
   buyer_remark?: string
   idempotency_key?: string
   use_balance?: boolean
+  coupon_id?: string | null
+  point_used?: number
+  share_trace_id?: string
 }
 
 export function getOrders(params?: { status?: string; page?: number; page_size?: number }) {
@@ -26,6 +29,14 @@ export function getOrderDetail(id: string) {
 
 export function createOrder(data: CreateOrderParams) {
   return request<{ order_id: string; order_no: string }>('/c/orders', {
+    method: 'POST',
+    auth: true,
+    data,
+  })
+}
+
+export function quoteOrder(data: OrderQuoteReq) {
+  return request<OrderQuoteResp>('/c/orders/quote', {
     method: 'POST',
     auth: true,
     data,

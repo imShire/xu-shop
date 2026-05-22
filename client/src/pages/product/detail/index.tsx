@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import Taro from '@tarojs/taro'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import SkuPicker from '@/components/SkuPicker'
+import SharePopup from '@/components/SharePopup'
 import { useShare } from '@/hooks/useShare'
 import { useAuthStore } from '@/stores/auth'
 import { useCartStore } from '@/stores/cart'
@@ -34,6 +35,7 @@ export default function ProductDetailPage() {
   const [isFavorite, setIsFavorite] = useState(false)
   const [favoriteInited, setFavoriteInited] = useState(false)
   const [activeImage, setActiveImage] = useState(0)
+  const [sharePopupVisible, setSharePopupVisible] = useState(false)
 
   const detailQuery = useQuery({
     queryKey: ['product', id],
@@ -84,7 +86,7 @@ export default function ProductDetailPage() {
   }
 
   function handleShareClick() {
-    void Taro.showToast({ title: '请使用系统分享能力', icon: 'none' })
+    setSharePopupVisible(true)
   }
 
   function handleToggleFavorite() {
@@ -141,7 +143,7 @@ export default function ProductDetailPage() {
     )
   }
 
-  if (detailQuery.isError || (!detailQuery.isLoading && !product)) {
+  if (detailQuery.isError || !product) {
     return <ProductNotFound onBack={handleBack} />
   }
 
@@ -333,6 +335,14 @@ export default function ProductDetailPage() {
           onConfirm={handleSkuConfirm}
         />
       ) : null}
+
+      <SharePopup
+        visible={sharePopupVisible}
+        onClose={() => setSharePopupVisible(false)}
+        scene='product'
+        targetId={id}
+        posterPath={`/pages/distributor/poster/index?scene=product&target_id=${id}`}
+      />
 
       <View className='detail-page__bar'>
         <View className='detail-page__bar-inner'>

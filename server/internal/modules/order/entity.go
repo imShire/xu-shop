@@ -124,6 +124,8 @@ type Order struct {
 	DistributionPath      RawJSON `gorm:"type:jsonb"`
 	GroupBuyOrderID       *int64
 	CouponID              *int64
+	PointUsed             int64 `gorm:"not null;default:0"`
+	PointDeductCents      int64 `gorm:"not null;default:0"`
 	FromShareUserID       *int64
 	FromChannelCodeID     *int64
 	IdempotencyKey        *string `gorm:"size:64"`

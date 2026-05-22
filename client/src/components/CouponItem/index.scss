@@ -1,0 +1,107 @@
+.coupon-item {
+  display: flex;
+  background: #fff;
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  position: relative;
+
+  &--disabled {
+    opacity: 0.5;
+    filter: grayscale(0.5);
+  }
+
+  &--selected {
+    outline: 2px solid var(--ds-color-accent, #f08c44);
+  }
+
+  &__left {
+    width: 200px;
+    background: linear-gradient(135deg, #0f4c36 0%, #166648 100%);
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 24px 16px;
+    flex-shrink: 0;
+
+    // dashed separator
+    border-right: 2px dashed rgba(255, 255, 255, 0.5);
+  }
+
+  &__amount {
+    font-size: 56px;
+    font-weight: 700;
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__amount-unit {
+    font-size: 28px;
+    font-weight: 500;
+  }
+
+  &__threshold {
+    margin-top: 8px;
+    font-size: 22px;
+    color: rgba(255, 255, 255, 0.85);
+  }
+
+  &__right {
+    flex: 1;
+    padding: 20px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+  }
+
+  &__head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+  }
+
+  &__name {
+    font-size: 28px;
+    font-weight: 600;
+    color: var(--ds-color-text-primary, #1f1f1f);
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__desc {
+    font-size: 22px;
+    color: var(--ds-color-text-secondary, #888);
+  }
+
+  &__scope {
+    font-size: 22px;
+    color: var(--ds-color-text-secondary, #888);
+  }
+
+  &__date {
+    font-size: 22px;
+    color: var(--ds-color-text-secondary, #aaa);
+    margin-top: auto;
+  }
+
+  &__action {
+    align-self: flex-end;
+    padding: 8px 24px;
+    background: var(--ds-color-accent, #f08c44);
+    color: #fff;
+    border-radius: 999px;
+    font-size: 24px;
+    margin-top: 8px;
+
+    &--disabled {
+      background: #d6d6d6;
+    }
+  }
+}

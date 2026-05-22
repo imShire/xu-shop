@@ -1,0 +1,56 @@
+.dist-apply {
+  min-height: 100vh;
+  background: #f5f5f5;
+  padding: 32px;
+
+  &__intro {
+    background: linear-gradient(135deg, #0f4c36 0%, #1d6e4f 100%);
+    color: #fff;
+    border-radius: 16px;
+    padding: 40px 32px;
+    margin-bottom: 32px;
+  }
+
+  &__title {
+    font-size: 40px;
+    font-weight: 700;
+    display: block;
+    margin-bottom: 12px;
+  }
+
+  &__sub {
+    font-size: 24px;
+    color: rgba(255, 255, 255, 0.85);
+    line-height: 1.6;
+  }
+
+  &__form {
+    background: #fff;
+    border-radius: 12px;
+    padding: 32px;
+  }
+
+  &__field {
+    margin-bottom: 24px;
+  }
+
+  &__label {
+    font-size: 26px;
+    color: var(--ds-color-text-secondary, #555);
+    margin-bottom: 12px;
+    display: block;
+  }
+
+  &__input {
+    border: 1px solid #e5e5e5;
+    border-radius: 8px;
+    padding: 8px 16px;
+  }
+
+  &__terms {
+    font-size: 22px;
+    color: var(--ds-color-text-secondary, #888);
+    margin: 24px 0;
+    line-height: 1.6;
+  }
+}

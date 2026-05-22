@@ -1,0 +1,43 @@
+.dist-poster {
+  min-height: 100vh;
+  background: #1f1f1f;
+  padding: 48px 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 32px;
+
+  &__image {
+    width: 100%;
+    max-width: 640px;
+    background: #fff;
+    border-radius: 16px;
+    overflow: hidden;
+  }
+
+  &__placeholder {
+    width: 100%;
+    aspect-ratio: 3/4;
+    background: #2a2a2a;
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: rgba(255, 255, 255, 0.4);
+    font-size: 26px;
+  }
+
+  &__hint {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 24px;
+    text-align: center;
+    line-height: 1.6;
+  }
+
+  &__actions {
+    display: flex;
+    gap: 16px;
+    width: 100%;
+    max-width: 640px;
+  }
+}

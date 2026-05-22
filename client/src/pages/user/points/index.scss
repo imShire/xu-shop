@@ -1,0 +1,72 @@
+.user-points {
+  min-height: 100vh;
+  background: #f5f5f5;
+  padding-bottom: 80px;
+
+  &__hero {
+    background: linear-gradient(135deg, #0f4c36 0%, #166648 100%);
+    color: #fff;
+    padding: 48px 32px 64px;
+    text-align: center;
+  }
+
+  &__hero-label {
+    font-size: 26px;
+    color: rgba(255, 255, 255, 0.85);
+  }
+
+  &__hero-balance {
+    font-size: 80px;
+    font-weight: 700;
+    margin-top: 12px;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.1;
+    display: block;
+  }
+
+  &__hero-meta {
+    display: flex;
+    justify-content: space-around;
+    margin-top: 32px;
+    font-size: 24px;
+  }
+
+  &__hero-meta-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+  }
+
+  &__hero-meta-num {
+    font-size: 32px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__alert {
+    margin: -24px 32px 16px;
+    background: #fef3e9;
+    color: #c87538;
+    padding: 20px 24px;
+    border-radius: 12px;
+    font-size: 24px;
+    line-height: 1.5;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  }
+
+  &__actions {
+    background: #fff;
+    margin: 16px 0;
+  }
+
+  &__rules {
+    margin: 16px 32px;
+    padding: 24px;
+    background: #fff;
+    border-radius: 12px;
+    font-size: 24px;
+    color: var(--ds-color-text-secondary, #555);
+    line-height: 1.7;
+  }
+}

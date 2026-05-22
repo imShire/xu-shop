@@ -1,0 +1,100 @@
+.dist-center {
+  min-height: 100vh;
+  background: #f5f5f5;
+  padding-bottom: 80px;
+
+  &__hero {
+    background: linear-gradient(135deg, #0f4c36 0%, #166648 100%);
+    color: #fff;
+    padding: 48px 32px 64px;
+  }
+
+  &__hero-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-bottom: 32px;
+  }
+
+  &__nickname {
+    font-size: 32px;
+    font-weight: 600;
+  }
+
+  &__level {
+    margin-left: 12px;
+    background: rgba(255, 255, 255, 0.2);
+    padding: 4px 12px;
+    border-radius: 999px;
+    font-size: 22px;
+  }
+
+  &__balance-label {
+    font-size: 24px;
+    color: rgba(255, 255, 255, 0.85);
+  }
+
+  &__balance-value {
+    font-size: 64px;
+    font-weight: 700;
+    margin-top: 8px;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.1;
+    display: block;
+  }
+
+  &__withdraw-btn {
+    margin-top: 16px;
+    padding: 16px 32px;
+    background: var(--ds-color-accent, #f08c44);
+    color: #fff;
+    border-radius: 999px;
+    font-size: 28px;
+    text-align: center;
+    width: fit-content;
+    align-self: flex-start;
+  }
+
+  &__metrics {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin: -24px 32px 16px;
+    background: #fff;
+    border-radius: 12px;
+    padding: 24px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+  }
+
+  &__metric {
+    text-align: center;
+  }
+
+  &__metric-num {
+    font-size: 32px;
+    font-weight: 700;
+    color: var(--ds-color-text-primary, #1f1f1f);
+    font-variant-numeric: tabular-nums;
+    display: block;
+  }
+
+  &__metric-label {
+    font-size: 22px;
+    color: var(--ds-color-text-secondary, #888);
+  }
+
+  &__entries {
+    background: #fff;
+    margin: 16px 0;
+  }
+
+  &__pending {
+    margin: 24px 32px;
+    padding: 32px;
+    background: #fff;
+    border-radius: 12px;
+    text-align: center;
+    color: var(--ds-color-text-secondary, #888);
+    font-size: 26px;
+  }
+}

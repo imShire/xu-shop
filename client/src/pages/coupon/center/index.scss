@@ -1,0 +1,25 @@
+.coupon-center {
+  min-height: 100vh;
+  background: #f5f5f5;
+  padding: 24px 32px 80px;
+
+  &__redeem-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #fff;
+    border-radius: 12px;
+    padding: 24px 28px;
+    margin-bottom: 24px;
+  }
+
+  &__redeem-title {
+    font-size: 28px;
+    font-weight: 600;
+  }
+
+  &__redeem-link {
+    color: var(--ds-color-accent, #f08c44);
+    font-size: 26px;
+  }
+}

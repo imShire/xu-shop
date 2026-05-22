@@ -1,0 +1,79 @@
+.dist-funnel {
+  min-height: 100vh;
+  background: #f5f5f5;
+  padding: 32px;
+
+  &__card {
+    background: #fff;
+    border-radius: 12px;
+    padding: 32px;
+    margin-bottom: 24px;
+  }
+
+  &__title {
+    font-size: 30px;
+    font-weight: 600;
+    margin-bottom: 24px;
+    display: block;
+  }
+
+  &__row {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    padding: 20px 0;
+    border-bottom: 1px solid #f5f5f5;
+
+    &:last-child { border-bottom: none; }
+  }
+
+  &__label {
+    flex-shrink: 0;
+    width: 200px;
+    font-size: 26px;
+    color: var(--ds-color-text-secondary, #555);
+  }
+
+  &__bar-wrap {
+    flex: 1;
+    height: 16px;
+    background: #f0f0f0;
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  &__bar {
+    height: 100%;
+    background: linear-gradient(90deg, #0f4c36, #f08c44);
+    border-radius: 8px;
+    transition: width 0.3s ease;
+  }
+
+  &__num {
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--ds-color-text-primary, #1f1f1f);
+    flex-shrink: 0;
+    width: 100px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__total-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 0;
+    border-bottom: 1px solid #f5f5f5;
+    font-size: 26px;
+
+    &:last-child { border-bottom: none; }
+  }
+
+  &__total-label { color: var(--ds-color-text-secondary, #555); }
+  &__total-value {
+    font-weight: 600;
+    color: var(--ds-color-text-primary, #1f1f1f);
+    font-variant-numeric: tabular-nums;
+  }
+}

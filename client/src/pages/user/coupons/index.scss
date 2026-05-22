@@ -1,0 +1,15 @@
+.user-coupons {
+  min-height: 100vh;
+  background: #f5f5f5;
+  padding-bottom: 80px;
+
+  &__list {
+    padding: 24px 32px;
+  }
+
+  &__entries {
+    background: #fff;
+    padding: 0 32px;
+    margin-bottom: 16px;
+  }
+}

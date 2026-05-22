@@ -1,0 +1,53 @@
+.dist-comm {
+  min-height: 100vh;
+  background: #f5f5f5;
+
+  &__row {
+    background: #fff;
+    padding: 24px 32px;
+    border-bottom: 1px solid #f5f5f5;
+    display: flex;
+    justify-content: space-between;
+    gap: 24px;
+  }
+
+  &__main {
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__order {
+    font-size: 24px;
+    color: var(--ds-color-text-secondary, #888);
+    display: block;
+  }
+
+  &__base {
+    font-size: 24px;
+    color: var(--ds-color-text-secondary, #555);
+    display: block;
+    margin-top: 4px;
+  }
+
+  &__time {
+    font-size: 22px;
+    color: #aaa;
+    display: block;
+    margin-top: 4px;
+  }
+
+  &__amount {
+    font-size: 32px;
+    font-weight: 700;
+    color: var(--ds-color-accent, #f08c44);
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+
+  &__status {
+    margin-top: 4px;
+    font-size: 22px;
+    text-align: right;
+    color: var(--ds-color-text-secondary, #888);
+  }
+}

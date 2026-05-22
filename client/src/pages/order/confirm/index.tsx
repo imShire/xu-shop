@@ -4,20 +4,25 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import { useEffect, useMemo, useState } from 'react'
 import PriceText from '@/components/PriceText'
 import AddressCard from '@/components/AddressCard'
+import CouponPicker from '@/components/CouponPicker'
+import PointsToggle from '@/components/PointsToggle'
 import { useAuthGuard } from '@/hooks/useAuthGuard'
 import { usePay } from '@/hooks/usePay'
 import { useAuthStore } from '@/stores/auth'
-import { createOrder } from '@/services/order'
+import { createOrder, quoteOrder } from '@/services/order'
 import { getCart, precheckCartItems } from '@/services/cart'
 import { getAddresses } from '@/services/address'
 import { getMyBalance } from '@/services/user'
-import type { Address, CartItem } from '@/types/biz'
+import { getPointSummary } from '@/services/point'
+import type { Address, CartItem, UserCoupon } from '@/types/biz'
 import { Button, Cell, Input, SafeArea, Skeleton, Switch } from '@/ui/nutui'
 import {
   formatCartConflictReason,
   formatCartSkuAttrs,
   formatCartUnavailableReason,
 } from '@/utils/cart'
+import { formatYuan } from '@/utils/price'
+import { getTraceId } from '@/utils/trace'
 import './index.scss'
 
 // ─── Entry mode types ────────────────────────────────────────────────────────
@@ -110,6 +115,9 @@ export default function OrderConfirmPage() {
   const [buyerRemark, setBuyerRemark] = useState('')
   const [selectedAddress, setSelectedAddress] = useState<Address | null>(null)
   const [useBalance, setUseBalance] = useState(false)
+  const [couponPickerVisible, setCouponPickerVisible] = useState(false)
+  const [selectedCouponId, setSelectedCouponId] = useState<string | null>(null)
+  const [pointUsed, setPointUsed] = useState(0)
 
   // Read checkout mode once on mount (useState initialiser runs once)
   const [checkoutMode] = useState<CheckoutMode>(() => readCheckoutMode())
@@ -212,7 +220,55 @@ export default function OrderConfirmPage() {
     [useBalance, balanceCents, itemsTotalCents],
   )
 
-  const payableCents = itemsTotalCents - balanceDeductCents
+  // ── Quote query (debounced) ──────────────────────────────────────
+  const quoteReq = useMemo(
+    () => ({
+      items: payableItems.map((i) => ({ sku_id: i.sku_id, qty: i.qty })),
+      address_id: selectedAddress?.id,
+      coupon_id: selectedCouponId,
+      point_used: pointUsed,
+    }),
+    [payableItems, selectedAddress?.id, selectedCouponId, pointUsed],
+  )
+  const quoteKey = JSON.stringify(quoteReq)
+  const [debouncedKey, setDebouncedKey] = useState(quoteKey)
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedKey(quoteKey), 300)
+    return () => clearTimeout(t)
+  }, [quoteKey])
+
+  const quoteQuery = useQuery({
+    queryKey: ['order-quote', debouncedKey],
+    queryFn: () => quoteOrder(JSON.parse(debouncedKey)),
+    enabled: isLoggedIn && payableItems.length > 0,
+    staleTime: 10_000,
+  })
+
+  const couponDeductCents = quoteQuery.data?.coupon_amount_cents ?? 0
+  const pointDeductCents = quoteQuery.data?.point_deduct_cents ?? 0
+  const maxPointUsable = quoteQuery.data?.max_point_used ?? 0
+  const applicableCoupons: UserCoupon[] = quoteQuery.data?.applicable_coupons ?? []
+  const freightCents = quoteQuery.data?.freight_cents ?? 0
+
+  // ── Point summary for balance ──────────────────────────────────────
+  const pointSummaryQuery = useQuery({
+    queryKey: ['point-summary'],
+    queryFn: getPointSummary,
+    enabled: isLoggedIn,
+  })
+  const pointBalance = pointSummaryQuery.data?.balance ?? 0
+
+  // Clamp pointUsed when max changes
+  useEffect(() => {
+    if (pointUsed > maxPointUsable) {
+      setPointUsed(maxPointUsable)
+    }
+  }, [maxPointUsable, pointUsed])
+
+  const payableCents = Math.max(
+    0,
+    itemsTotalCents + freightCents - couponDeductCents - pointDeductCents - balanceDeductCents,
+  )
 
   // ── Pay hook ───────────────────────────────────────────────────────────────
 
@@ -244,12 +300,16 @@ export default function OrderConfirmPage() {
       }
 
       const key = `${Date.now()}-${Math.random().toString(36).slice(2)}`
+      const traceId = getTraceId()
       return createOrder({
         address_id: selectedAddress.id,
         items: payableItems.map((i) => ({ sku_id: i.sku_id, qty: i.qty })),
         buyer_remark: buyerRemark || undefined,
         idempotency_key: key,
         use_balance: useBalance,
+        coupon_id: selectedCouponId,
+        point_used: pointUsed,
+        ...(traceId ? { share_trace_id: traceId } : {}),
       })
     },
     onSuccess: async (result) => {
@@ -374,6 +434,36 @@ export default function OrderConfirmPage() {
         />
       </View>
 
+      {/* Coupon picker entry */}
+      {isLoggedIn && payableItems.length > 0 && (
+        <View className='order-confirm-page__block'>
+          <Cell
+            title='优惠券'
+            extra={
+              selectedCouponId && couponDeductCents > 0
+                ? `-${formatYuan(couponDeductCents)}`
+                : applicableCoupons.length > 0
+                  ? `${applicableCoupons.length} 张可用`
+                  : '暂无可用'
+            }
+            onClick={() => setCouponPickerVisible(true)}
+          />
+        </View>
+      )}
+
+      {/* Points toggle */}
+      {isLoggedIn && pointBalance > 0 && maxPointUsable > 0 && (
+        <View className='order-confirm-page__block'>
+          <PointsToggle
+            balance={pointBalance}
+            maxUsable={maxPointUsable}
+            value={pointUsed}
+            deductCents={pointDeductCents}
+            onChange={setPointUsed}
+          />
+        </View>
+      )}
+
       {/* Balance toggle */}
       {isLoggedIn && balanceCents > 0 && (
         <View className='order-confirm-page__block'>
@@ -399,8 +489,26 @@ export default function OrderConfirmPage() {
         </View>
         <View className='order-confirm-page__summary-row'>
           <Text className='order-confirm-page__summary-label'>运费</Text>
-          <Text className='order-confirm-page__summary-value'>¥0.00</Text>
+          <Text className='order-confirm-page__summary-value'>
+            {formatYuan(freightCents)}
+          </Text>
         </View>
+        {couponDeductCents > 0 && (
+          <View className='order-confirm-page__summary-row'>
+            <Text className='order-confirm-page__summary-label'>优惠券</Text>
+            <Text className='order-confirm-page__summary-value' style={{ color: '#F08C44' }}>
+              -{formatYuan(couponDeductCents)}
+            </Text>
+          </View>
+        )}
+        {pointDeductCents > 0 && (
+          <View className='order-confirm-page__summary-row'>
+            <Text className='order-confirm-page__summary-label'>积分抵扣</Text>
+            <Text className='order-confirm-page__summary-value' style={{ color: '#F08C44' }}>
+              -{formatYuan(pointDeductCents)}
+            </Text>
+          </View>
+        )}
         {useBalance && balanceDeductCents > 0 && (
           <View className='order-confirm-page__summary-row'>
             <Text className='order-confirm-page__summary-label'>余额抵扣</Text>
@@ -444,6 +552,18 @@ export default function OrderConfirmPage() {
         </View>
         <SafeArea position='bottom' />
       </View>
+
+      {/* Coupon picker popup */}
+      <CouponPicker
+        visible={couponPickerVisible}
+        coupons={applicableCoupons}
+        selectedId={selectedCouponId}
+        onClose={() => setCouponPickerVisible(false)}
+        onSelect={(id) => {
+          setSelectedCouponId(id)
+          setCouponPickerVisible(false)
+        }}
+      />
     </View>
   )
 }

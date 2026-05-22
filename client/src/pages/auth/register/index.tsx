@@ -6,6 +6,7 @@ import { useAuthStore } from '@/stores/auth'
 import { Button, Input } from '@/ui/nutui'
 import { navigateAfterAuth, withAuthRedirect } from '@/utils/auth-navigation'
 import { showErrorToast } from '@/utils/error'
+import { getTraceId } from '@/utils/trace'
 import './index.scss'
 
 export default function RegisterPage() {
@@ -85,7 +86,13 @@ export default function RegisterPage() {
 
     setLoading(true)
     try {
-      const res = await phoneRegister({ phone: phone.trim(), code: code.trim(), password })
+      const traceId = getTraceId()
+      const res = await phoneRegister({
+        phone: phone.trim(),
+        code: code.trim(),
+        password,
+        ...(traceId ? { trace_id: traceId } : {}),
+      })
       setAuth(res.token, res.user)
       Taro.showToast({ title: '注册成功', icon: 'success' })
       setTimeout(() => navigateAfterAuth(redirect), 800)

@@ -219,3 +219,173 @@ export interface AftersaleStatus {
   reason: string
   created_at: string
 }
+
+// ─── v1.2 会员 / 优惠券 ──────────────────────────────────────────────────────
+
+export type CouponType = 'amount' | 'discount' | 'no_threshold' | 'exchange'
+export type CouponScopeType = 'all' | 'category' | 'spu' | 'sku'
+export type CouponStatus = 'unused' | 'locked' | 'used' | 'expired'
+
+export interface CouponTemplate {
+  id: string
+  name: string
+  description?: string
+  type: CouponType
+  value_cents: number
+  discount_rate?: number | null
+  max_discount_cents?: number
+  min_amount_cents: number
+  scope_type: CouponScopeType
+  scope_targets?: string[]
+  validity_mode?: 'absolute' | 'relative'
+  valid_from?: string | null
+  valid_to?: string | null
+  valid_days?: number | null
+  total_quota?: number
+  claimed_count?: number
+  used_count?: number
+  per_user_limit?: number
+  stack_with_points?: boolean
+  status?: 'draft' | 'online' | 'offline'
+  claim_start_at?: string | null
+  claim_end_at?: string | null
+  /** 是否已被当前用户领取（后端附加字段，可选） */
+  is_claimed?: boolean
+}
+
+export interface UserCoupon {
+  id: string
+  coupon_template_id: string
+  name: string
+  type: CouponType
+  value_cents: number
+  discount_rate?: number | null
+  max_discount_cents?: number
+  min_amount_cents: number
+  status: CouponStatus
+  order_id?: string | null
+  claimed_at: string
+  expire_at: string
+  used_at?: string | null
+  /** 当前订单上下文是否可用（来自 quote 接口） */
+  applicable?: boolean
+  /** 不可用原因（来自 quote 接口） */
+  reason?: string
+}
+
+export interface PointAccount {
+  balance: number
+  locked: number
+  total_earned: number
+  total_spent: number
+}
+
+export interface PointTransaction {
+  id: string
+  change: number
+  type: 'earn' | 'spend' | 'expire' | 'refund' | 'admin_adjust' | 'freeze' | 'unfreeze'
+  ref_type?: string | null
+  ref_id?: string | null
+  balance_after: number
+  expire_at?: string | null
+  reason: string
+  created_at: string
+}
+
+export interface MemberLevel {
+  code: string
+  name: string
+  threshold_amount_cents: number
+  points_multiplier: number
+  benefits?: Record<string, unknown>
+  sort?: number
+  is_active?: boolean
+}
+
+export interface OrderQuoteItem {
+  sku_id: string
+  qty: number
+}
+
+export interface OrderQuoteReq {
+  items: OrderQuoteItem[]
+  address_id?: string | null
+  coupon_id?: string | null
+  point_used?: number
+}
+
+export interface OrderQuoteResp {
+  goods_amount_cents: number
+  freight_cents: number
+  coupon_amount_cents: number
+  point_used: number
+  point_deduct_cents: number
+  pay_amount_cents: number
+  point_earn_estimated: number
+  applicable_coupons: UserCoupon[]
+  max_point_used: number
+}
+
+// ─── v1.2 分销 / 分享 ────────────────────────────────────────────────────────
+
+export type ShareScene = 'product' | 'activity' | 'brand' | 'invite_register'
+
+export interface ShareLink {
+  id: string
+  scene: ShareScene
+  target_id?: string | null
+  channel_code: string
+  short_token: string
+  h5_url: string
+  wxapp_path: string
+  expire_at: string
+  click_count: number
+  register_count: number
+  order_count: number
+  gmv_cents: number
+}
+
+export interface Distributor {
+  id: string
+  user_id: string
+  nickname: string
+  avatar?: string
+  level: 'normal' | 'senior'
+  rate: number
+  status: 'pending' | 'active' | 'disabled'
+  apply_at: string
+  approved_at?: string | null
+}
+
+export type CommissionStatus = 'pending' | 'locked' | 'settled' | 'canceled' | 'suspect'
+
+export interface CommissionRecord {
+  id: string
+  order_id: string
+  order_no: string
+  distributor_user_id: string
+  level: string
+  rate: number
+  base_amount_cents: number
+  amount_cents: number
+  status: CommissionStatus
+  suspect_reason?: string | null
+  freeze_until: string
+  settled_at?: string | null
+  created_at: string
+}
+
+export type WithdrawStatus = 'pending' | 'processing' | 'success' | 'failed' | 'canceled'
+
+export interface WithdrawOrder {
+  id: string
+  withdraw_no: string
+  amount_cents: number
+  channel: 'wx_transfer'
+  status: WithdrawStatus
+  wx_transfer_no?: string | null
+  wx_transfer_state?: string | null
+  fail_reason?: string | null
+  applied_at: string
+  finished_at?: string | null
+}

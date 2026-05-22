@@ -20,6 +20,13 @@ type MockClient struct {
 	RefundNotifyErr     error
 	BillData            []byte
 	BillErr             error
+	// 商家转账 mock
+	TransferResult       *TransferResp
+	TransferErr          error
+	QueryTransferResult  *TransferQueryResp
+	QueryTransferErr     error
+	TransferNotifyResult *TransferNotifyResult
+	TransferNotifyErr    error
 }
 
 // NewMockClient 返回默认 mock 客户端（返回预设成功响应）。

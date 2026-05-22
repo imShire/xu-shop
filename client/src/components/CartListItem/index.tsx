@@ -101,7 +101,6 @@ export default function CartListItem({
                       min={1}
                       max={effectiveMaxQty}
                       disabled={disabled || busy}
-                      size='small'
                       onChange={(value: string | number) => {
                         const nextQty = Number(value)
                         if (!Number.isNaN(nextQty) && nextQty > 0 && nextQty !== effectiveQty) {

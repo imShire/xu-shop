@@ -1,0 +1,88 @@
+.member-page {
+  min-height: 100vh;
+  background: #f5f5f5;
+  padding-bottom: 80px;
+
+  &__hero {
+    background: linear-gradient(135deg, #0f4c36 0%, #1d6e4f 100%);
+    color: #fff;
+    padding: 48px 32px;
+    border-bottom-left-radius: 24px;
+    border-bottom-right-radius: 24px;
+  }
+
+  &__level {
+    font-size: 26px;
+    color: rgba(255, 255, 255, 0.85);
+  }
+
+  &__name {
+    font-size: 56px;
+    font-weight: 700;
+    margin-top: 8px;
+    display: block;
+  }
+
+  &__progress {
+    margin-top: 32px;
+  }
+
+  &__progress-bar {
+    height: 12px;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.25);
+    overflow: hidden;
+  }
+
+  &__progress-fill {
+    height: 100%;
+    background: var(--ds-color-accent, #f08c44);
+    border-radius: 6px;
+    transition: width 0.3s ease;
+  }
+
+  &__progress-meta {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 12px;
+    font-size: 22px;
+    color: rgba(255, 255, 255, 0.9);
+  }
+
+  &__benefits {
+    margin: 24px 32px;
+    background: #fff;
+    border-radius: 12px;
+    padding: 32px;
+  }
+
+  &__section-title {
+    font-size: 30px;
+    font-weight: 600;
+    margin-bottom: 24px;
+    display: block;
+  }
+
+  &__benefit-row {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    padding: 20px 0;
+    border-bottom: 1px solid #f5f5f5;
+
+    &:last-child { border-bottom: none; }
+  }
+
+  &__benefit-dot {
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--ds-color-accent, #f08c44);
+    flex-shrink: 0;
+  }
+
+  &__benefit-text {
+    font-size: 26px;
+    color: var(--ds-color-text-primary, #1f1f1f);
+  }
+}

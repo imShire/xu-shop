@@ -44,7 +44,16 @@ require (
 	gorm.io/gorm v1.31.1
 )
 
-require golang.org/x/image v0.40.0 // indirect
+require (
+	github.com/glebarez/go-sqlite v1.21.2 // indirect
+	github.com/glebarez/sqlite v1.11.0 // indirect
+	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
+	golang.org/x/image v0.40.0 // indirect
+	modernc.org/libc v1.22.5 // indirect
+	modernc.org/mathutil v1.5.0 // indirect
+	modernc.org/memory v1.5.0 // indirect
+	modernc.org/sqlite v1.23.1 // indirect
+)
 
 require (
 	github.com/aliyun/aliyun-oss-go-sdk v3.0.2+incompatible

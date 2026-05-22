@@ -6,6 +6,8 @@ import { useAuthStore } from '@/stores/auth'
 import { useCartStore } from '@/stores/cart'
 import { ConfigProvider } from '@/ui/nutui'
 import { isH5 } from '@/utils/platform'
+import { extractTokenFromLaunch, persistTraceId } from '@/utils/trace'
+import { trackShareClick } from '@/services/share'
 import '@nutui/nutui-react-taro/dist/style.css'
 import './app.scss'
 
@@ -117,6 +119,15 @@ function App({ children }: PropsWithChildren) {
 
   useLaunch((options) => {
     const scene = options?.query?.scene
+    // ─── share trace ─────────────────────────────────────────────
+    const token = extractTokenFromLaunch({
+      query: options?.query as Record<string, string> | undefined,
+      scene: typeof scene === 'string' ? scene : undefined,
+    })
+    if (token) {
+      persistTraceId(token)
+      trackShareClick(token)
+    }
     void hydrate(typeof scene === 'string' ? scene : undefined).then(() => refreshCount())
     syncRouteState()
   })

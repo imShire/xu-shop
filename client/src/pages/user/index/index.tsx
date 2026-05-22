@@ -4,6 +4,9 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuthGuard } from '@/hooks/useAuthGuard'
 import { getOrders } from '@/services/order'
 import { getMyBalance, getFavorites, getHistory } from '@/services/user'
+import { getPointSummary } from '@/services/point'
+import { getMyCoupons } from '@/services/coupon'
+import { getMyDistributor } from '@/services/distributor'
 import { useAuthStore } from '@/stores/auth'
 import { Avatar } from '@/ui/nutui'
 import {
@@ -126,6 +129,27 @@ export default function UserPage() {
     staleTime: 60 * 1000,
   })
 
+  // ─── v1.2: 会员 / 积分 / 券 / 分销 ──────────────────────────────
+  const pointSummaryQuery = useQuery({
+    queryKey: ['user-center', 'points'],
+    queryFn: getPointSummary,
+    enabled: isLoggedIn,
+    staleTime: 60 * 1000,
+  })
+  const couponCountQuery = useQuery({
+    queryKey: ['user-center', 'coupons-unused'],
+    queryFn: () => getMyCoupons({ status: 'unused', page: 1, page_size: 1 }),
+    enabled: isLoggedIn,
+    staleTime: 60 * 1000,
+  })
+  const distributorQuery = useQuery({
+    queryKey: ['my-distributor'],
+    queryFn: getMyDistributor,
+    enabled: isLoggedIn,
+    staleTime: 60 * 1000,
+  })
+  const isDistributor = distributorQuery.data?.status === 'active'
+
   const handleLogin = () => {
     void ensureAuth(undefined, '/pages/user/index/index')
   }
@@ -154,7 +178,7 @@ export default function UserPage() {
     { label: '收藏', value: isLoggedIn ? String(favoritesQuery.data?.total ?? 0) : '0', url: '/pages/user/favorite/index' },
     { label: '足迹', value: isLoggedIn ? String(historyQuery.data?.total ?? 0) : '0', url: '/pages/user/history/index' },
     { label: '余额', value: isLoggedIn ? `¥${((balanceQuery.data?.balance_cents ?? 0) / 100).toFixed(2)}` : '¥0.00', url: '/pages/user/balance/index' },
-    { label: '优惠券', value: '0', url: '' },
+    { label: '优惠券', value: isLoggedIn ? String(couponCountQuery.data?.total ?? 0) : '0', url: '/pages/user/coupons/index' },
   ]
 
   return (
@@ -283,6 +307,66 @@ export default function UserPage() {
               </View>
             )
           })}
+        </View>
+      </View>
+
+      {/* v1.2: 会员 / 优惠券 / 积分 / 分销 */}
+      <View className='user-page__section'>
+        <View className='user-page__section-head'>
+          <Text className='user-page__section-title'>会员中心</Text>
+        </View>
+        <View className='user-page__icon-grid'>
+          <View
+            className='user-page__icon-item'
+            onClick={() => navigateProtected('/pages/user/coupons/index')}
+          >
+            <View className='user-page__icon-wrap'>
+              <Text style={{ fontSize: 28 }}>券</Text>
+              {isLoggedIn && (couponCountQuery.data?.total ?? 0) > 0 ? (
+                <Text className='user-page__badge'>
+                  {formatCount(couponCountQuery.data?.total ?? 0)}
+                </Text>
+              ) : null}
+            </View>
+            <Text className='user-page__icon-label'>我的优惠券</Text>
+          </View>
+          <View
+            className='user-page__icon-item'
+            onClick={() => navigateProtected('/pages/user/points/index')}
+          >
+            <View className='user-page__icon-wrap'>
+              <Text style={{ fontSize: 28 }}>积</Text>
+            </View>
+            <Text className='user-page__icon-label'>
+              我的积分{isLoggedIn ? ` ${pointSummaryQuery.data?.balance ?? 0}` : ''}
+            </Text>
+          </View>
+          <View
+            className='user-page__icon-item'
+            onClick={() => navigateProtected('/pages/user/member/index')}
+          >
+            <View className='user-page__icon-wrap'>
+              <Text style={{ fontSize: 28 }}>会</Text>
+            </View>
+            <Text className='user-page__icon-label'>会员等级</Text>
+          </View>
+          <View
+            className='user-page__icon-item'
+            onClick={() =>
+              navigateProtected(
+                isDistributor
+                  ? '/pages/distributor/center/index'
+                  : '/pages/distributor/apply/index',
+              )
+            }
+          >
+            <View className='user-page__icon-wrap'>
+              <Text style={{ fontSize: 28 }}>销</Text>
+            </View>
+            <Text className='user-page__icon-label'>
+              {isDistributor ? '分销中心' : '成为分销员'}
+            </Text>
+          </View>
         </View>
       </View>
 

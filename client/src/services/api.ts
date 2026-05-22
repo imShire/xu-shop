@@ -49,11 +49,13 @@ export async function request<T>(
     data?: unknown
     params?: Record<string, string | number | undefined>
     auth?: boolean
+    headers?: Record<string, string>
   } = {}
 ): Promise<T> {
-  const { method = 'GET', data, params, auth = false } = options
+  const { method = 'GET', data, params, auth = false, headers: extraHeaders } = options
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
+    ...(extraHeaders ?? {}),
   }
 
   if (auth) {

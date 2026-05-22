@@ -19,6 +19,7 @@ import (
 	"github.com/xushop/xu-shop/internal/modules/account"
 	"github.com/xushop/xu-shop/internal/modules/address"
 	"github.com/xushop/xu-shop/internal/modules/inventory"
+	"github.com/xushop/xu-shop/internal/modules/marketing/shared"
 	"github.com/xushop/xu-shop/internal/modules/product"
 	pkgcsv "github.com/xushop/xu-shop/internal/pkg/csv"
 	"github.com/xushop/xu-shop/internal/pkg/errs"
@@ -81,6 +82,8 @@ type CreateOrderReq struct {
 	FreightTemplateID  *pkgtypes.Int64Str  `json:"freight_template_id"`
 	UseBalance         bool                `json:"use_balance"`
 	FromCartItemIDs    []pkgtypes.Int64Str `json:"from_cart_item_ids"` // 购物车下单时传，下单成功后删
+	CouponID           *pkgtypes.Int64Str  `json:"coupon_id"`           // 用户券 id（user_coupon.id）
+	PointUsed          int64               `json:"point_used"`          // 使用积分数（1 积分 = 1 分）
 }
 
 // OrderItemReq 单行商品请求。
@@ -99,6 +102,9 @@ type OrderResp struct {
 	FreightCents         int64             `json:"freight_cents"`
 	DiscountCents        int64             `json:"discount_cents"`
 	CouponDiscountCents  int64             `json:"coupon_discount_cents"`
+	CouponAmountCents    int64             `json:"coupon_amount_cents"`
+	PointUsed            int64             `json:"point_used"`
+	PointDeductCents     int64             `json:"point_deduct_cents"`
 	TotalCents           int64             `json:"total_cents"`
 	PayCents             int64             `json:"pay_cents"`
 	BalancePayCents      int64             `json:"balance_pay_cents"`
@@ -161,6 +167,9 @@ func toOrderResp(o *Order) OrderResp {
 		FreightCents:         o.FreightCents,
 		DiscountCents:        o.DiscountCents,
 		CouponDiscountCents:  o.CouponDiscountCents,
+		CouponAmountCents:    o.CouponDiscountCents,
+		PointUsed:            o.PointUsed,
+		PointDeductCents:     o.PointDeductCents,
 		TotalCents:           o.TotalCents,
 		PayCents:             o.PayCents,
 		BalancePayCents:      o.BalancePayCents,
@@ -215,16 +224,17 @@ type CartItemDeleter interface {
 
 // Service 订单服务。
 type Service struct {
-	repo        OrderRepo
-	skuRepo     product.SKURepo
-	productRepo product.ProductRepo
-	invRepo     inventory.InventoryRepo
-	addrRepo    address.AddressRepo
-	stockClient *stock.Client
-	rdb         *redis.Client
-	asynqClient *asynq.Client
-	userRepo    account.UserRepo
-	cartDeleter CartItemDeleter
+	repo          OrderRepo
+	skuRepo       product.SKURepo
+	productRepo   product.ProductRepo
+	invRepo       inventory.InventoryRepo
+	addrRepo      address.AddressRepo
+	stockClient   *stock.Client
+	rdb           *redis.Client
+	asynqClient   *asynq.Client
+	userRepo      account.UserRepo
+	cartDeleter   CartItemDeleter
+	marketingHook shared.HookService
 }
 
 // NewService 构造 Service。
@@ -252,6 +262,11 @@ func NewService(
 		userRepo:    userRepo,
 		cartDeleter: cartDeleter,
 	}
+}
+
+// SetMarketingHook 注入营销 hook（运行期可选）。未注入时下单/状态机调用直接跳过。
+func (s *Service) SetMarketingHook(h shared.HookService) {
+	s.marketingHook = h
 }
 
 // ---- 状态机辅助 ----
@@ -344,10 +359,43 @@ func (s *Service) Transition(
 			return err
 		}
 
+		// 营销 hook：仅当订单使用了券或积分时才触发
+		if s.marketingHook != nil && (o.CouponID != nil || o.PointUsed > 0) {
+			if hookErr := s.dispatchMarketingHook(ctx, tx, o, trigger); hookErr != nil {
+				return hookErr
+			}
+		}
+
 		result = o
 		return nil
 	})
 	return result, err
+}
+
+// dispatchMarketingHook 在状态机变更事务内分发营销副作用（按 trigger）。
+func (s *Service) dispatchMarketingHook(ctx context.Context, tx *gorm.DB, o *Order, trigger string) error {
+	switch trigger {
+	case "pay_success":
+		return s.marketingHook.Consume(ctx, tx, shared.ConsumeReq{
+			OrderID:         o.ID,
+			UserID:          o.UserID,
+			PaidAmountCents: o.PayCents,
+		})
+	case "user_cancel", "expire", "admin_close":
+		return s.marketingHook.Release(ctx, tx, shared.ReleaseReq{
+			OrderID: o.ID,
+			UserID:  o.UserID,
+		})
+	case "refund_success":
+		return s.marketingHook.RefundRestore(ctx, tx, shared.RefundRestoreReq{
+			OrderID:           o.ID,
+			UserID:            o.UserID,
+			RefundAmountCents: o.PayCents,
+			OrderAmountCents:  o.PayCents,
+			IsFullRefund:      true,
+		})
+	}
+	return nil
 }
 
 // ---- 下单 ----
@@ -591,17 +639,44 @@ func (s *Service) CreateOrder(ctx context.Context, userID int64, req CreateOrder
 
 	// 8. DB 事务
 	dbErr := s.repo.DB().WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		// 8a. 余额扣减（事务内原子操作，避免 TOCTOU）
+		// 8a. 营销锁定：券 + 积分（同事务，失败则回滚）
+		if s.marketingHook != nil && (req.CouponID != nil || req.PointUsed > 0) {
+			var ucIDPtr *int64
+			if req.CouponID != nil {
+				v := req.CouponID.Int64()
+				ucIDPtr = &v
+				o.CouponID = &v
+			}
+			lockResp, lockErr := s.marketingHook.Lock(ctx, tx, shared.LockReq{
+				OrderID:          orderID,
+				UserID:           userID,
+				OrderAmountCents: goodsCents,
+				UserCouponID:     ucIDPtr,
+				PointUsed:        req.PointUsed,
+			})
+			if lockErr != nil {
+				return lockErr
+			}
+			o.CouponDiscountCents = lockResp.CouponDeductCents
+			o.PointUsed = req.PointUsed
+			o.PointDeductCents = lockResp.PointDeductCents
+			o.PayCents = totalCents - lockResp.CouponDeductCents - lockResp.PointDeductCents
+			if o.PayCents < 0 {
+				o.PayCents = 0
+			}
+		}
+
+		// 8b. 余额扣减（事务内原子操作，避免 TOCTOU）
 		if req.UseBalance && s.userRepo != nil {
-			deducted, err := s.userRepo.DeductBalanceTx(ctx, tx, userID, totalCents, "order", orderID, "订单支付")
+			deducted, err := s.userRepo.DeductBalanceTx(ctx, tx, userID, o.PayCents, "order", orderID, "订单支付")
 			if err != nil {
 				return err
 			}
 			o.BalancePayCents = deducted
-			o.PayCents = totalCents - deducted
+			o.PayCents -= deducted
 		}
 
-		// 8b. 创建订单（PayCents/BalancePayCents 已在 8a 确定）
+		// 8c. 创建订单（PayCents/BalancePayCents 已在 8a/8b 确定）
 		if err := tx.Create(o).Error; err != nil {
 			return err
 		}
@@ -612,7 +687,7 @@ func (s *Service) CreateOrder(ctx context.Context, userID int64, req CreateOrder
 			return err
 		}
 
-		// 8c. DB 层锁库存（原子递增，避免并发覆盖）
+		// 8d. DB 层锁库存（原子递增，避免并发覆盖）
 		for _, it := range req.Items {
 			if err := tx.Table("sku").Where("id = ?", it.SkuID.Int64()).
 				UpdateColumn("locked_stock", gorm.Expr("locked_stock + ?", it.Qty)).Error; err != nil {
