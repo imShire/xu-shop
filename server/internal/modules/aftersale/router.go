@@ -16,6 +16,7 @@ func RegisterRoutes(r *gin.RouterGroup, h *Handler, rdb *redis.Client, db *gorm.
 	}
 
 	r.GET("/admin/aftersales", adminAuth("aftersale.view"), h.AdminListAftersales)
-	r.POST("/admin/aftersales/:order_id/approve", adminAuth("aftersale.process"), middleware.MarkSensitive(), h.AdminApproveCancel)
-	r.POST("/admin/aftersales/:order_id/reject", adminAuth("aftersale.process"), h.AdminRejectCancel)
+	// MarkSensitive() 必须在 adminAuth 之前，否则 auth 中间件读取 sensitive flag 时仍为 false
+	r.POST("/admin/aftersales/:order_id/approve", middleware.MarkSensitive(), adminAuth("aftersale.process"), h.AdminApproveCancel)
+	r.POST("/admin/aftersales/:order_id/reject", middleware.MarkSensitive(), adminAuth("aftersale.process"), h.AdminRejectCancel)
 }

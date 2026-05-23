@@ -1,7 +1,9 @@
 package middleware
 
 import (
+	"fmt"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	redis_rate "github.com/go-redis/redis_rate/v10"
@@ -44,8 +46,18 @@ func RateLimiter(rdb *redis.Client, keyPrefix string, perMinute int) gin.Handler
 }
 
 func toString(v any) string {
-	if s, ok := v.(string); ok {
-		return s
+	switch x := v.(type) {
+	case string:
+		return x
+	case int64:
+		return strconv.FormatInt(x, 10)
+	case int:
+		return strconv.Itoa(x)
+	case int32:
+		return strconv.FormatInt(int64(x), 10)
+	case uint64:
+		return strconv.FormatUint(x, 10)
+	default:
+		return fmt.Sprintf("%v", v)
 	}
-	return ""
 }

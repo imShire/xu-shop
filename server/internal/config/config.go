@@ -23,6 +23,13 @@ type Config struct {
 	KDNiao KDNiaoConfig
 	QYWx   QYWxConfig
 	Log    LogConfig
+	Auth   AuthConfig
+}
+
+type AuthConfig struct {
+	// H5RedirectAllowList H5 OAuth 回调 state 跳转白名单（完整 URL，逗号分隔的环境变量 AUTH_H5_REDIRECT_ALLOWLIST）。
+	// 未配置时仅允许以 "/" 开头的同源相对路径，以防开放重定向。
+	H5RedirectAllowList []string
 }
 
 type AppConfig struct {
@@ -169,6 +176,15 @@ func Load() (*Config, error) {
 	cfg.QYWx.Secret = v.GetString("QYWX_SECRET")
 
 	cfg.Log.Level = v.GetString("LOG_LEVEL")
+
+	// AUTH_H5_REDIRECT_ALLOWLIST: 逗号分隔的完整 URL 列表，可为空
+	if raw := v.GetString("AUTH_H5_REDIRECT_ALLOWLIST"); raw != "" {
+		for _, item := range strings.Split(raw, ",") {
+			if s := strings.TrimSpace(item); s != "" {
+				cfg.Auth.H5RedirectAllowList = append(cfg.Auth.H5RedirectAllowList, s)
+			}
+		}
+	}
 
 	// 校验必填项
 	if cfg.DB.DSN == "" {

@@ -3,6 +3,7 @@ package account_test
 import (
 	"context"
 	"errors"
+	"strconv"
 	"testing"
 	"time"
 
@@ -443,3 +444,91 @@ func TestAdminCreatePwdStrength(t *testing.T) {
 
 // 确保 jwt.RegisteredClaims 在 Claims 中正确使用
 var _ = jwt.RegisteredClaims{}
+
+// ---- H-004 回归：admin/user 状态变更后必须失效 user:status 缓存 ----
+
+// userStatusCacheKey 与 middleware.InvalidateUserStatusCache 内部 key 保持一致。
+func userStatusCacheKey(userID int64) string {
+	return "user:status:" + strconv.FormatInt(userID, 10)
+}
+
+// seedUserStatusCache 在 miniredis 上写入一条 user:status 缓存，便于断言被删除。
+func seedUserStatusCache(t *testing.T, rdb *redis.Client, userID int64) {
+	t.Helper()
+	if err := rdb.Set(context.Background(), userStatusCacheKey(userID), "active", time.Minute).Err(); err != nil {
+		t.Fatalf("seed user:status cache: %v", err)
+	}
+}
+
+// assertUserStatusCacheCleared 断言 user:status:<id> 已被清除。
+func assertUserStatusCacheCleared(t *testing.T, rdb *redis.Client, userID int64) {
+	t.Helper()
+	_, err := rdb.Get(context.Background(), userStatusCacheKey(userID)).Result()
+	if !errors.Is(err, redis.Nil) {
+		t.Fatalf("expected user:status:%d to be cleared, got err=%v", userID, err)
+	}
+}
+
+func TestAdminDisableUser_InvalidatesStatusCache(t *testing.T) {
+	rdb := newTestRdb(t)
+	cfg := newTestCfg()
+	userRepo := newMockUserRepo()
+	const uid int64 = 9001
+	userRepo.byID[uid] = &account.User{ID: uid, Status: "active"}
+	svc := account.NewService(userRepo, newMockAdminRepo(), &mockRoleRepo{}, rdb, cfg,
+		wxlogin.NewMockClient(), wxlogin.NewMockClient())
+
+	seedUserStatusCache(t, rdb, uid)
+	if err := svc.AdminDisableUser(context.Background(), uid); err != nil {
+		t.Fatalf("AdminDisableUser: %v", err)
+	}
+	assertUserStatusCacheCleared(t, rdb, uid)
+}
+
+func TestAdminEnableUser_InvalidatesStatusCache(t *testing.T) {
+	rdb := newTestRdb(t)
+	cfg := newTestCfg()
+	userRepo := newMockUserRepo()
+	const uid int64 = 9002
+	userRepo.byID[uid] = &account.User{ID: uid, Status: "disabled"}
+	svc := account.NewService(userRepo, newMockAdminRepo(), &mockRoleRepo{}, rdb, cfg,
+		wxlogin.NewMockClient(), wxlogin.NewMockClient())
+
+	seedUserStatusCache(t, rdb, uid)
+	if err := svc.AdminEnableUser(context.Background(), uid); err != nil {
+		t.Fatalf("AdminEnableUser: %v", err)
+	}
+	assertUserStatusCacheCleared(t, rdb, uid)
+}
+
+func TestRequestDeactivate_InvalidatesStatusCache(t *testing.T) {
+	rdb := newTestRdb(t)
+	cfg := newTestCfg()
+	userRepo := newMockUserRepo()
+	const uid int64 = 9003
+	userRepo.byID[uid] = &account.User{ID: uid, Status: "active"}
+	svc := account.NewService(userRepo, newMockAdminRepo(), &mockRoleRepo{}, rdb, cfg,
+		wxlogin.NewMockClient(), wxlogin.NewMockClient())
+
+	seedUserStatusCache(t, rdb, uid)
+	if err := svc.RequestDeactivate(context.Background(), uid, ""); err != nil {
+		t.Fatalf("RequestDeactivate: %v", err)
+	}
+	assertUserStatusCacheCleared(t, rdb, uid)
+}
+
+func TestCancelDeactivate_InvalidatesStatusCache(t *testing.T) {
+	rdb := newTestRdb(t)
+	cfg := newTestCfg()
+	userRepo := newMockUserRepo()
+	const uid int64 = 9004
+	userRepo.byID[uid] = &account.User{ID: uid, Status: "deactivating"}
+	svc := account.NewService(userRepo, newMockAdminRepo(), &mockRoleRepo{}, rdb, cfg,
+		wxlogin.NewMockClient(), wxlogin.NewMockClient())
+
+	seedUserStatusCache(t, rdb, uid)
+	if err := svc.CancelDeactivate(context.Background(), uid); err != nil {
+		t.Fatalf("CancelDeactivate: %v", err)
+	}
+	assertUserStatusCacheCleared(t, rdb, uid)
+}

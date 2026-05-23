@@ -17,7 +17,8 @@ func RegisterRoutes(r *gin.RouterGroup, h *Handler, rdb *redis.Client, db *gorm.
 	}
 
 	// C 端支付路由
-	r.POST("/c/pay/wxpay/prepay", userAuth, middleware.MarkSensitive(), h.Prepay)
+	// MarkSensitive() 必须在 userAuth 之前，否则 auth 中间件读取 sensitive flag 时仍为 false
+	r.POST("/c/pay/wxpay/prepay", middleware.MarkSensitive(), userAuth, h.Prepay)
 	r.GET("/c/orders/:id/pay-status", userAuth, h.QueryPayStatus)
 
 	// 微信回调（无 auth）
@@ -25,7 +26,7 @@ func RegisterRoutes(r *gin.RouterGroup, h *Handler, rdb *redis.Client, db *gorm.
 	r.POST("/notify/wxpay/refund", h.WxpayRefundNotify)
 
 	// 后台支付路由
-	r.POST("/admin/orders/:id/refund", adminAuth("refund.create"), middleware.MarkSensitive(), h.AdminApplyRefund)
+	r.POST("/admin/orders/:id/refund", middleware.MarkSensitive(), adminAuth("refund.create"), h.AdminApplyRefund)
 	r.GET("/admin/payments", adminAuth("payment.view"), h.AdminListPayments)
 	r.GET("/admin/refunds", adminAuth("payment.view"), h.AdminListRefunds)
 	r.GET("/admin/reconciliation", adminAuth("reconcile.view"), h.AdminListDiffs)

@@ -26,9 +26,10 @@ func RegisterRoutes(r *gin.RouterGroup, h *Handler, rdb *redis.Client, db *gorm.
 		auth.POST("/mp/login", h.MpLogin)
 		auth.GET("/h5/code", h.H5GetOAuthURL)
 		auth.GET("/h5/callback", h.H5Callback)
-		auth.POST("/bind-phone", userAuth, sensitive, h.BindPhone)
+		// sensitive 必须在 userAuth 之前，否则 auth 中间件读取 sensitive flag 时仍为 false
+		auth.POST("/bind-phone", sensitive, userAuth, h.BindPhone)
 		auth.POST("/refresh", h.RefreshToken)
-		auth.POST("/logout", userAuth, sensitive, h.Logout)
+		auth.POST("/logout", sensitive, userAuth, h.Logout)
 		auth.POST("/sms/send", h.SendSmsCode)
 		auth.POST("/phone-register", h.PhoneRegister)
 		auth.POST("/phone-login", h.PhoneLogin)
@@ -40,7 +41,8 @@ func RegisterRoutes(r *gin.RouterGroup, h *Handler, rdb *redis.Client, db *gorm.
 
 		me := c.Group("/me", userAuth)
 		me.PUT("", h.UpdateMe)
-		me.POST("/deactivate", sensitive, h.RequestDeactivate)
+		// 注销属敏感操作；将 sensitive 放在 group 已注入的 userAuth 之前需单独绑定路由
+		c.POST("/me/deactivate", sensitive, userAuth, h.RequestDeactivate)
 		me.POST("/deactivate/cancel", h.CancelDeactivate)
 		me.GET("/balance", h.GetMyBalance)
 	}
@@ -58,9 +60,11 @@ func RegisterRoutes(r *gin.RouterGroup, h *Handler, rdb *redis.Client, db *gorm.
 		admins.GET("", adminAuth("system.admin.view"), h.ListAdmins)
 		admins.POST("", adminAuth("system.admin.create"), h.CreateAdmin)
 		admins.PUT("/:id", adminAuth("system.admin.edit"), h.UpdateAdmin)
-		admins.POST("/:id/disable", adminAuth("system.admin.disable"), h.DisableAdmin)
-		admins.POST("/:id/enable", adminAuth("system.admin.enable"), h.EnableAdmin)
-		admins.POST("/:id/reset-pwd", adminAuth("system.admin.reset_pwd"), sensitive, h.ResetAdminPwd)
+		// sensitive 必须在 adminAuth 之前
+		admins.POST("/:id/disable", sensitive, adminAuth("system.admin.disable"), h.DisableAdmin)
+		admins.POST("/:id/enable", sensitive, adminAuth("system.admin.enable"), h.EnableAdmin)
+		// sensitive 必须在 adminAuth 之前
+		admins.POST("/:id/reset-pwd", sensitive, adminAuth("system.admin.reset_pwd"), h.ResetAdminPwd)
 
 		roles := admin.Group("/roles")
 		roles.GET("", adminAuth("system.role.view"), h.ListRoles)
@@ -74,9 +78,11 @@ func RegisterRoutes(r *gin.RouterGroup, h *Handler, rdb *redis.Client, db *gorm.
 		users.GET("", adminAuth("user.view"), h.AdminListUsers)
 		users.POST("", adminAuth("user.create"), h.AdminCreateUser)
 		users.GET("/:id", adminAuth("user.view"), h.AdminGetUser)
-		users.POST("/:id/disable", adminAuth("user.disable"), h.AdminDisableUser)
-		users.POST("/:id/enable", adminAuth("user.enable"), h.AdminEnableUser)
-		users.POST("/:id/recharge", adminAuth("user.recharge"), h.AdminRechargeBalance)
+		// sensitive 必须在 adminAuth 之前
+		users.POST("/:id/disable", sensitive, adminAuth("user.disable"), h.AdminDisableUser)
+		users.POST("/:id/enable", sensitive, adminAuth("user.enable"), h.AdminEnableUser)
+		// 充值动钱属强敏感写操作，sensitive 必须在 adminAuth 之前
+		users.POST("/:id/recharge", sensitive, adminAuth("user.recharge"), h.AdminRechargeBalance)
 		users.GET("/:id/balance-logs", adminAuth("user.view"), h.AdminListBalanceLogs)
 	}
 }

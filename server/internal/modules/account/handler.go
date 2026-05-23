@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -16,14 +17,16 @@ import (
 
 // Handler 账号模块 HTTP 处理器。
 type Handler struct {
-	svc    *Service
-	jwtCfg pkgjwt.Config
-	isProd bool
+	svc                 *Service
+	jwtCfg              pkgjwt.Config
+	isProd              bool
+	h5RedirectAllowList []string // 完整 URL 白名单，H5Callback state 跳转允许名单
 }
 
 // NewHandler 构造 Handler。
-func NewHandler(svc *Service, jwtCfg pkgjwt.Config, isProd bool) *Handler {
-	return &Handler{svc: svc, jwtCfg: jwtCfg, isProd: isProd}
+// h5RedirectAllowList：完整 URL 列表，可为 nil/空，为空时 H5Callback 仅允许 state 是以 "/" 开头的同源相对路径。
+func NewHandler(svc *Service, jwtCfg pkgjwt.Config, isProd bool, h5RedirectAllowList []string) *Handler {
+	return &Handler{svc: svc, jwtCfg: jwtCfg, isProd: isProd, h5RedirectAllowList: h5RedirectAllowList}
 }
 
 // ---- C 端 handler ----
@@ -104,11 +107,43 @@ func (h *Handler) H5Callback(c *gin.Context) {
 	)
 
 	// 302 跳转到前端首页（state 中可携带 returnURL）
-	target := "/"
-	if query.State != "" {
-		target = query.State
+	// L-005：state 必须是同源相对路径或命中白名单，防止开放重定向
+	c.Redirect(http.StatusFound, h.safeH5Redirect(query.State))
+}
+
+// safeH5Redirect 校验 H5Callback 传入的 state 跳转目标。
+// 允许：
+//   - 以 "/" 开头的同源相对路径（不包含 "//"、"\\"、"http:"、"https:" 前缀）
+//   - 精确匹配 h5RedirectAllowList 中的完整 URL
+//
+// 其他情况回落到 "/"，避免开放重定向被用于钓鱼。
+func (h *Handler) safeH5Redirect(state string) string {
+	const fallback = "/"
+	if state == "" {
+		return fallback
 	}
-	c.Redirect(http.StatusFound, target)
+	// 先查白名单的精确匹配
+	for _, allowed := range h.h5RedirectAllowList {
+		if state == allowed {
+			return state
+		}
+	}
+	// 仅接受以 / 开头的相对路径
+	if !strings.HasPrefix(state, "/") {
+		return fallback
+	}
+	// 拒绝 protocol-relative URL (//evil.com) 与反斜杠变体 (/\evil.com、\\evil.com)
+	if strings.HasPrefix(state, "//") || strings.HasPrefix(state, "/\\") {
+		return fallback
+	}
+	lower := strings.ToLower(state)
+	if strings.Contains(lower, "http:") || strings.Contains(lower, "https:") {
+		return fallback
+	}
+	if strings.ContainsAny(state, "\\\r\n\t") {
+		return fallback
+	}
+	return state
 }
 
 // BindPhone 绑定手机号。

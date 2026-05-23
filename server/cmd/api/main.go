@@ -155,7 +155,7 @@ func main() {
 		accountAdminRepo := account.NewAdminRepo(app.DB)
 		accountRoleRepo := account.NewRoleRepo(app.DB)
 		accountSvc := account.NewService(accountUserRepo, accountAdminRepo, accountRoleRepo, app.Redis, cfg, wxMP, wxOA)
-		accountHandler := account.NewHandler(accountSvc, jwtCfg, cfg.App.Env == "prod")
+		accountHandler := account.NewHandler(accountSvc, jwtCfg, cfg.App.Env == "prod", cfg.Auth.H5RedirectAllowList)
 		account.RegisterRoutes(v1, accountHandler, app.Redis, app.DB, jwtCfg)
 		uploadManager := pkgupload.NewManager(app.DB, cfg.App.SecretKey)
 		adminSvc := adminmod.NewService(accountRoleRepo, uploadManager, app.DB)

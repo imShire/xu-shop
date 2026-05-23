@@ -20,6 +20,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/xushop/xu-shop/internal/config"
+	"github.com/xushop/xu-shop/internal/middleware"
 	"github.com/xushop/xu-shop/internal/pkg/errs"
 	pkgjwt "github.com/xushop/xu-shop/internal/pkg/jwt"
 	"github.com/xushop/xu-shop/internal/pkg/snowflake"
@@ -61,6 +62,7 @@ type Service struct {
 	jwtCfg    pkgjwt.Config
 	wxMP      wxlogin.WxLoginClient // 小程序
 	wxOA      wxlogin.WxLoginClient // 公众号
+	env       string                // APP_ENV：dev/staging/prod
 }
 
 // NewService 构造 Service。
@@ -84,6 +86,7 @@ func NewService(
 		},
 		wxMP: wxMP,
 		wxOA: wxOA,
+		env:  cfg.App.Env,
 	}
 }
 
@@ -275,18 +278,31 @@ func (s *Service) UpdateUser(ctx context.Context, userID int64, req UpdateUserRe
 // RequestDeactivate 申请注销，status=deactivating，deactivate_at=now+30d。
 func (s *Service) RequestDeactivate(ctx context.Context, userID int64, _ string) error {
 	deactivateAt := time.Now().Add(deactivatePeriod)
-	return s.userRepo.Update(ctx, userID, map[string]any{
+	if err := s.userRepo.Update(ctx, userID, map[string]any{
 		"status":        "deactivating",
 		"deactivate_at": deactivateAt,
-	})
+	}); err != nil {
+		return err
+	}
+	// 主动失效 user:status 缓存，避免 60s 窗口内被禁用账号仍可使用敏感接口
+	if err := middleware.InvalidateUserStatusCache(ctx, s.rdb, userID); err != nil {
+		log.Printf("invalidate user status cache failed user_id=%d err=%v", userID, err)
+	}
+	return nil
 }
 
 // CancelDeactivate 撤销注销申请。
 func (s *Service) CancelDeactivate(ctx context.Context, userID int64) error {
-	return s.userRepo.Update(ctx, userID, map[string]any{
+	if err := s.userRepo.Update(ctx, userID, map[string]any{
 		"status":        "active",
 		"deactivate_at": nil,
-	})
+	}); err != nil {
+		return err
+	}
+	if err := middleware.InvalidateUserStatusCache(ctx, s.rdb, userID); err != nil {
+		log.Printf("invalidate user status cache failed user_id=%d err=%v", userID, err)
+	}
+	return nil
 }
 
 // ---- 手机号注册/登录 ----
@@ -315,8 +331,13 @@ func (s *Service) SendSmsCode(ctx context.Context, phone, purpose string) error 
 		return errs.ErrInternal
 	}
 
-	// 开发阶段：打日志代替真实发送
-	log.Printf("SMS to %s: %s", phone, code)
+	// SMS 验证码仅在 dev 环境输出明文方便调试；
+	// 生产环境仅记录脱敏手机号（中间 4 位脱敏），不输出码值。
+	if s.env == "dev" {
+		log.Printf("SMS to %s: %s", phone, code)
+	} else {
+		log.Printf("sms code dispatched phone=%s", maskPhone(phone))
+	}
 	return nil
 }
 
@@ -512,6 +533,15 @@ func generateSmsCode() (string, error) {
 	// 取无符号 32 位整数，对 1000000 取模保证 6 位
 	n := (uint32(b[0])<<24 | uint32(b[1])<<16 | uint32(b[2])<<8 | uint32(b[3])) % 1000000
 	return fmt.Sprintf("%06d", n), nil
+}
+
+// maskPhone 将手机号中间 4 位替换为 ****，用于生产日志脱敏。
+// 非 11 位输入直接返回 "***" 避免泄漏原值。
+func maskPhone(phone string) string {
+	if len(phone) != 11 {
+		return "***"
+	}
+	return phone[:3] + "****" + phone[7:]
 }
 
 // validateAdminPassword 校验管理员密码强度（≥12 位，同时包含字母、数字和特殊符号）。
@@ -988,7 +1018,14 @@ func (s *Service) AdminDisableUser(ctx context.Context, userID int64) error {
 	if u.Status == "disabled" {
 		return nil
 	}
-	return s.userRepo.Update(ctx, userID, map[string]any{"status": "disabled"})
+	if err := s.userRepo.Update(ctx, userID, map[string]any{"status": "disabled"}); err != nil {
+		return err
+	}
+	// 主动失效 user:status 缓存，防止 60s 窗口内被禁用账号继续访问敏感接口
+	if err := middleware.InvalidateUserStatusCache(ctx, s.rdb, userID); err != nil {
+		log.Printf("invalidate user status cache failed user_id=%d err=%v", userID, err)
+	}
+	return nil
 }
 
 // AdminEnableUser 管理员启用 C 端用户。
@@ -1000,7 +1037,14 @@ func (s *Service) AdminEnableUser(ctx context.Context, userID int64) error {
 	if u.Status == "active" {
 		return nil
 	}
-	return s.userRepo.Update(ctx, userID, map[string]any{"status": "active"})
+	if err := s.userRepo.Update(ctx, userID, map[string]any{"status": "active"}); err != nil {
+		return err
+	}
+	// 启用同样需失效缓存，以免旧的 disabled/banned 表德状态被续命中
+	if err := middleware.InvalidateUserStatusCache(ctx, s.rdb, userID); err != nil {
+		log.Printf("invalidate user status cache failed user_id=%d err=%v", userID, err)
+	}
+	return nil
 }
 
 // ---- 余额 ----
