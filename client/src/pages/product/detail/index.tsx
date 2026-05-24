@@ -1,4 +1,4 @@
-import { Image, RichText, Text, View } from '@tarojs/components'
+import { Image, RichText, Text, Video, View } from '@tarojs/components'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import Taro from '@tarojs/taro'
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -182,20 +182,40 @@ export default function ProductDetailPage() {
             duration={320}
             onChange={(event) => setActiveImage(event.detail.current)}
           >
+            {product.video_url ? (
+              <SwiperItem key='video' className='detail-page__swiper-item'>
+                <Video
+                  src={product.video_url}
+                  style={{ width: '100%', height: '375px' }}
+                  controls
+                  showMuteBtn
+                  objectFit='cover'
+                />
+              </SwiperItem>
+            ) : null}
             {images.map((src, index) => (
               <SwiperItem key={`${src}-${index}`} className='detail-page__swiper-item'>
                 <Image className='detail-page__swiper-image' src={src} mode='aspectFill' />
               </SwiperItem>
             ))}
           </Swiper>
-          {images.length > 1 ? (
+          {(product.video_url ? images.length + 1 : images.length) > 1 ? (
             <View className='detail-page__hero-dots'>
-              {images.map((src, index) => (
+              {product.video_url ? (
                 <View
-                  key={`${src}-${index}-dot`}
-                  className={`detail-page__hero-dot${index === activeImage ? ' detail-page__hero-dot--active' : ''}`}
+                  key='dot-video'
+                  className={`detail-page__hero-dot${activeImage === 0 ? ' detail-page__hero-dot--active' : ''}`}
                 />
-              ))}
+              ) : null}
+              {images.map((src, index) => {
+                const dotIndex = product.video_url ? index + 1 : index
+                return (
+                  <View
+                    key={`${src}-${index}-dot`}
+                    className={`detail-page__hero-dot${dotIndex === activeImage ? ' detail-page__hero-dot--active' : ''}`}
+                  />
+                )
+              })}
             </View>
           ) : null}
         </View>

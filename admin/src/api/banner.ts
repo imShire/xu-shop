@@ -10,6 +10,8 @@ export interface Banner {
   is_active: boolean
   created_at: string
   link_config?: LinkConfig | null
+  start_at?: string | null
+  end_at?: string | null
 }
 
 export interface BannerForm {
@@ -18,6 +20,8 @@ export interface BannerForm {
   link_url?: string
   sort?: number
   link_config?: LinkConfig | null
+  start_at?: string | null
+  end_at?: string | null
 }
 
 export interface SortItem {

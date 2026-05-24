@@ -65,6 +65,14 @@ export default defineAppConfig({
       pages: ['poster/index'],
     },
     {
+      root: 'pages/article',
+      pages: ['list/index', 'detail/index'],
+    },
+    {
+      root: 'pages/search',
+      pages: ['index'],
+    },
+    {
       root: 'pages/webview',
       pages: ['index'],
     },

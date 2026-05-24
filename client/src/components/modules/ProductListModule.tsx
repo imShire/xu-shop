@@ -10,11 +10,17 @@ interface Props {
 }
 
 export default function ProductListModule({ data }: Props) {
-  const { title = '推荐商品', sort = 'latest', limit = 4 } = data
+  const { title = '推荐商品', sort = 'latest', limit = 4, product_ids } = data
+  const isManual = product_ids && product_ids.length > 0
 
   const { data: result } = useQuery({
-    queryKey: ['page-module-products', sort, limit],
-    queryFn: () => getProducts({ sort, page: 1, page_size: limit }),
+    queryKey: isManual
+      ? ['page-module-products', 'manual', product_ids.join(',')]
+      : ['page-module-products', sort, limit],
+    queryFn: () =>
+      isManual
+        ? getProducts({ ids: product_ids.join(','), page: 1, page_size: product_ids.length })
+        : getProducts({ sort, page: 1, page_size: limit }),
     staleTime: 2 * 60 * 1000,
   })
 

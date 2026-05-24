@@ -17,6 +17,8 @@ type Banner struct {
 	LinkConfig *domain.LinkConfig `gorm:"column:link_config;type:jsonb"  json:"link_config,omitempty"`
 	Sort       int         `gorm:"not null;default:0" json:"sort"`
 	IsActive  bool      `gorm:"not null;default:true" json:"is_active"`
+	StartAt   *time.Time `gorm:"column:start_at"          json:"start_at,omitempty"`
+	EndAt     *time.Time `gorm:"column:end_at"             json:"end_at,omitempty"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
@@ -34,6 +36,8 @@ type CreateBannerReq struct {
 	LinkConfig *domain.LinkConfig `json:"link_config"`
 	Sort       int                `json:"sort"`
 	IsActive   *bool              `json:"is_active"`
+	StartAt    *time.Time         `json:"start_at"`
+	EndAt      *time.Time         `json:"end_at"`
 }
 
 // UpdateBannerReq 更新横幅请求。
@@ -44,6 +48,8 @@ type UpdateBannerReq struct {
 	LinkConfig *domain.LinkConfig `json:"link_config"`
 	Sort       int                `json:"sort"`
 	IsActive   *bool              `json:"is_active"`
+	StartAt    *time.Time         `json:"start_at"`
+	EndAt      *time.Time         `json:"end_at"`
 }
 
 // SortItem 单个排序项。

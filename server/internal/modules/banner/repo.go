@@ -36,7 +36,10 @@ func (r *bannerRepoImpl) FindAll(ctx context.Context) ([]Banner, error) {
 
 func (r *bannerRepoImpl) FindActive(ctx context.Context) ([]Banner, error) {
 	var list []Banner
-	err := r.db.WithContext(ctx).Where("is_active = true").Order("sort ASC, id ASC").Find(&list).Error
+	err := r.db.WithContext(ctx).
+		Where("is_active = true").
+		Where("(start_at IS NULL OR start_at <= NOW()) AND (end_at IS NULL OR end_at > NOW())").
+		Order("sort ASC, id ASC").Find(&list).Error
 	return list, err
 }
 

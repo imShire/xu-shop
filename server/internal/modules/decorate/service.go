@@ -51,20 +51,31 @@ func (s *Service) Save(ctx context.Context, adminID int64, req SaveConfigReq) (*
 		"product_list":   true,
 		"category_entry": true,
 		"rich_text":      true,
+		"image_ad":       true,
 	}
 	for _, m := range req.Modules {
 		if !allowedTypes[m.Type] {
 			return nil, errs.ErrParam.WithMsg("不支持的模块类型：" + m.Type)
 		}
-		// 对 product_list 模块校验 sort 字段（允许缺省）
+		// 对 product_list 模块校验（有 product_ids 则跳过 sort 校验）
 		if m.Type == "product_list" && len(m.Data) > 0 {
 			var d struct {
-				Sort string `json:"sort"`
+				Sort       string   `json:"sort"`
+				ProductIDs []string `json:"product_ids"`
 			}
 			if err := json.Unmarshal(m.Data, &d); err != nil {
 				return nil, errs.ErrParam.WithMsg("product_list.data 必须是对象")
 			}
-			if d.Sort != "" {
+			if len(d.ProductIDs) > 0 {
+				if len(d.ProductIDs) > 20 {
+					return nil, errs.ErrParam.WithMsg("product_ids 最多 20 个")
+				}
+				for _, pid := range d.ProductIDs {
+					if !isDigitString(pid) || len(pid) > 32 {
+						return nil, errs.ErrParam.WithMsg("product_ids 包含非法 ID")
+					}
+				}
+			} else if d.Sort != "" {
 				allowedSorts := map[string]bool{
 					"latest":     true,
 					"popular":    true,
@@ -75,6 +86,28 @@ func (s *Service) Save(ctx context.Context, adminID int64, req SaveConfigReq) (*
 				if !allowedSorts[d.Sort] {
 					return nil, errs.ErrParam.WithMsg("不支持的商品排序：" + d.Sort)
 				}
+			}
+		}
+		// 对 image_ad 模块校验 data 字段
+		if m.Type == "image_ad" {
+			if len(m.Data) == 0 {
+				return nil, errs.ErrParam.WithMsg("image_ad.data 缺少 image_url")
+			}
+			var d struct {
+				ImageURL string `json:"image_url"`
+				Alt      string `json:"alt"`
+			}
+			if err := json.Unmarshal(m.Data, &d); err != nil {
+				return nil, errs.ErrParam.WithMsg("image_ad.data 必须是对象")
+			}
+			if d.ImageURL == "" {
+				return nil, errs.ErrParam.WithMsg("image_ad.data 缺少 image_url")
+			}
+			if len(d.ImageURL) > 512 {
+				return nil, errs.ErrParam.WithMsg("image_ad.image_url 最长 512 字符")
+			}
+			if len(d.Alt) > 128 {
+				return nil, errs.ErrParam.WithMsg("image_ad.alt 最长 128 字符")
 			}
 		}
 	}
@@ -124,4 +157,17 @@ func (s *Service) Activate(ctx context.Context, id int64, pageKey string) error 
 		return errs.ErrInternal
 	}
 	return nil
+}
+
+// isDigitString 判断字符串是否只包含 ASCII 数字且非空。
+func isDigitString(s string) bool {
+	if s == "" {
+		return false
+	}
+	for _, c := range s {
+		if c < '0' || c > '9' {
+			return false
+		}
+	}
+	return true
 }

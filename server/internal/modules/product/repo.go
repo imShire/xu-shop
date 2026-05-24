@@ -19,6 +19,7 @@ type ProductFilter struct {
 	Page       int
 	PageSize   int
 	InStock    bool
+	IDs        []int64
 }
 
 // ProductDetail 商品详情（含规格和 SKU）。

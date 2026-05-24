@@ -117,6 +117,38 @@ func buildCategoryTree(list []Category, parentID int64) []CategoryTreeNode {
 
 // ListProducts C 端商品列表（仅 onsale）。
 func (s *Service) ListProducts(ctx context.Context, req ProductListReq) ([]ProductResp, int64, error) {
+	// 手选商品模式：按 ID 列表直接查询，不走分页
+	if req.IDs != "" {
+		parts := strings.Split(req.IDs, ",")
+		ids := make([]int64, 0, len(parts))
+		for _, part := range parts {
+			part = strings.TrimSpace(part)
+			if part == "" {
+				continue
+			}
+			id, err := strconv.ParseInt(part, 10, 64)
+			if err != nil || id <= 0 {
+				return nil, 0, errs.ErrParam.WithMsg("ids 包含非法 ID")
+			}
+			ids = append(ids, id)
+		}
+		if len(ids) > 20 {
+			return nil, 0, errs.ErrParam.WithMsg("ids 最多 20 个")
+		}
+		if len(ids) == 0 {
+			return []ProductResp{}, 0, nil
+		}
+		products, err := s.productRepo.FindByIDs(ctx, ids)
+		if err != nil {
+			return nil, 0, errs.ErrInternal
+		}
+		resp := make([]ProductResp, len(products))
+		for i, p := range products {
+			resp[i] = toProductResp(&p)
+		}
+		return resp, int64(len(resp)), nil
+	}
+
 	if req.Page < 1 {
 		req.Page = 1
 	}

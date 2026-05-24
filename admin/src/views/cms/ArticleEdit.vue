@@ -6,6 +6,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { getArticle, createArticle, updateArticle } from '@/api/cms'
 import UploadImage from '@/components/UploadImage/index.vue'
+import { useAuthStore } from '@/stores/auth'
 
 const route = useRoute()
 const router = useRouter()
@@ -23,7 +24,18 @@ const form = ref({
 
 // wangEditor
 const editorRef = shallowRef()
-const editorConfig = { MENU_CONF: {} }
+const auth = useAuthStore()
+const editorConfig = {
+  placeholder: '请输入文章内容...',
+  MENU_CONF: {
+    uploadImage: {
+      server: '/api/admin/upload',
+      fieldName: 'file',
+      headers: { Authorization: `Bearer ${auth.token}` },
+      maxFileSize: 5 * 1024 * 1024,
+    },
+  },
+}
 onBeforeUnmount(() => editorRef.value?.destroy())
 
 onMounted(async () => {

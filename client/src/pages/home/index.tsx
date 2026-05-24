@@ -10,10 +10,11 @@ import { addToCart } from '@/services/cart'
 import { getNavIcons, type NavIcon } from '@/services/nav-icon'
 import { getCategories, getHotProducts, getProducts } from '@/services/product'
 import { getPageConfig } from '@/services/page-config'
-import type { PageModule } from '@/services/page-config'
+import type { PageModule, ImageAdData } from '@/services/page-config'
 import ProductListModule from '@/components/modules/ProductListModule'
 import CategoryEntryModule from '@/components/modules/CategoryEntryModule'
 import RichTextModule from '@/components/modules/RichTextModule'
+import ImageAdModule from '@/components/modules/ImageAdModule'
 import { useCartStore } from '@/stores/cart'
 import type { Category, Product, ProductDetail, ProductListPage } from '@/types/biz'
 import { buildProductListUrl, mapCategoryLinkToProductListUrl } from '@/utils/product-list'
@@ -209,7 +210,7 @@ export default function HomePage() {
         </View>
         <View
           className='home-page__search-shell'
-          onClick={() => void Taro.navigateTo({ url: buildProductListUrl() })}
+          onClick={() => void Taro.navigateTo({ url: '/pages/search/index' })}
         >
           <View className='home-page__search-icon'>
             <Search width={16} height={16} />
@@ -374,6 +375,14 @@ export default function HomePage() {
             <RichTextModule
               key={`module-${index}`}
               data={module.data as import('@/services/page-config').RichTextData}
+            />
+          )
+        }
+        if (module.type === 'image_ad') {
+          return (
+            <ImageAdModule
+              key={`module-${index}`}
+              data={module.data as ImageAdData}
             />
           )
         }

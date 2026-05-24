@@ -53,6 +53,8 @@ func (s *Service) Create(ctx context.Context, req CreateBannerReq) (*Banner, err
 		LinkConfig: req.LinkConfig,
 		Sort:       req.Sort,
 		IsActive:   isActive,
+		StartAt:    req.StartAt,
+		EndAt:      req.EndAt,
 	}
 	if err := s.repo.Create(ctx, b); err != nil {
 		return nil, errs.ErrInternal
@@ -81,6 +83,8 @@ func (s *Service) Update(ctx context.Context, id int64, req UpdateBannerReq) (*B
 	if req.IsActive != nil {
 		b.IsActive = *req.IsActive
 	}
+	b.StartAt = req.StartAt
+	b.EndAt = req.EndAt
 	if err := s.repo.Update(ctx, b); err != nil {
 		return nil, errs.ErrInternal
 	}

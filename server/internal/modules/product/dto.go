@@ -112,6 +112,7 @@ type ProductListReq struct {
 	Page       int            `form:"page"      binding:"min=0"`
 	PageSize   int            `form:"page_size" binding:"min=0,max=100"`
 	InStock    bool           `form:"in_stock"`
+	IDs        string         `form:"ids"`
 }
 
 // ---- 响应 DTO ----

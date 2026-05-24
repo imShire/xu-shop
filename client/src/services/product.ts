@@ -11,6 +11,7 @@ export function getProducts(params?: {
   sort?: ProductSort
   page?: number
   page_size?: number
+  ids?: string
 }) {
   return request<ProductListPage>('/c/products', {
     params: {
@@ -19,6 +20,7 @@ export function getProducts(params?: {
       sort: params?.sort,
       page: params?.page ?? 1,
       page_size: params?.page_size ?? 20,
+      ids: params?.ids,
     },
   })
 }

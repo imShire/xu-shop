@@ -27,15 +27,17 @@ const isEdit = ref(false)
 const saving = ref(false)
 const formRef = ref<FormInstance>()
 
-const defaultForm = (): BannerForm & { link_config: LinkConfig | null } => ({
+const defaultForm = (): BannerForm & { link_config: LinkConfig | null; start_at: string | null; end_at: string | null } => ({
   title: '',
   image_url: '',
   link_url: '',
   sort: 0,
   link_config: null,
+  start_at: null,
+  end_at: null,
 })
 
-const form = ref<BannerForm & { id?: string; link_config: LinkConfig | null }>(defaultForm())
+const form = ref<BannerForm & { id?: string; link_config: LinkConfig | null; start_at: string | null; end_at: string | null }>(defaultForm())
 
 watch(() => form.value.link_config, (val) => {
   if (val?.url) form.value.link_url = val.url
@@ -68,6 +70,8 @@ function openEdit(row: Banner) {
     link_url: row.link_url,
     sort: row.sort,
     link_config: row.link_config ? { ...row.link_config } : null,
+    start_at: row.start_at ?? null,
+    end_at: row.end_at ?? null,
   }
   isEdit.value = true
   dialogVisible.value = true
@@ -87,6 +91,8 @@ async function handleSave() {
       link_url: form.value.link_url,
       sort: form.value.sort ?? 0,
       link_config: form.value.link_config ?? null,
+      start_at: form.value.start_at ?? null,
+      end_at: form.value.end_at ?? null,
     }
     if (isEdit.value && form.value.id) {
       await updateBanner(form.value.id, payload)
@@ -171,6 +177,18 @@ onMounted(loadData)
         </template>
       </el-table-column>
 
+      <!-- 有效期 -->
+      <el-table-column label="有效期" min-width="180">
+        <template #default="{ row }">
+          <span v-if="!row.start_at && !row.end_at" style="color: var(--el-text-color-secondary)">永久</span>
+          <span v-else style="font-size: 12px">
+            {{ row.start_at ? row.start_at.replace('T', ' ').slice(0, 16) : '—' }}
+            ~
+            {{ row.end_at ? row.end_at.replace('T', ' ').slice(0, 16) : '—' }}
+          </span>
+        </template>
+      </el-table-column>
+
       <!-- 排序 -->
       <el-table-column label="排序" width="100" align="center">
         <template #default="{ row }">
@@ -232,6 +250,24 @@ onMounted(loadData)
             <LinkPicker v-model="form.link_config" style="margin-bottom: 8px" />
             <el-input v-model="form.link_url" placeholder="可选，如 /pages/product/detail?id=1" />
           </div>
+        </el-form-item>
+        <el-form-item label="展示开始" prop="start_at">
+          <el-date-picker
+            v-model="form.start_at"
+            type="datetime"
+            placeholder="展示开始时间（空=立即）"
+            value-format="YYYY-MM-DDTHH:mm:ssZ"
+            style="width: 220px"
+          />
+        </el-form-item>
+        <el-form-item label="展示结束" prop="end_at">
+          <el-date-picker
+            v-model="form.end_at"
+            type="datetime"
+            placeholder="展示结束时间（空=永久）"
+            value-format="YYYY-MM-DDTHH:mm:ssZ"
+            style="width: 220px"
+          />
         </el-form-item>
         <el-form-item label="排序" prop="sort">
           <el-input-number v-model="form.sort" :min="0" :max="9999" style="width: 120px" />
