@@ -54,6 +54,7 @@ const MY_SERVICES: ServiceItem[] = [
   { label: '收货地址', url: '/pages/address/list/index', icon: Location },
   { label: '我的收藏', url: '/pages/user/favorite/index', icon: HeartFill },
   { label: '浏览记录', url: '/pages/user/history/index', icon: Footprint },
+  { label: '售后/取消', url: '/pages/aftersale/list/index', icon: List },
 ]
 
 const MORE_SERVICES: ServiceItem[] = [

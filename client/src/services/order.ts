@@ -47,6 +47,21 @@ export function cancelOrder(id: string) {
   return request<void>(`/c/orders/${id}/cancel`, { method: 'POST', auth: true })
 }
 
+export function requestCancelOrder(id: string, reason: string) {
+  return request<void>(`/c/orders/${id}/cancel`, {
+    method: 'POST',
+    auth: true,
+    data: { reason },
+  })
+}
+
+export function withdrawCancelRequest(id: string) {
+  return request<void>(`/c/orders/${id}/cancel-request/withdraw`, {
+    method: 'POST',
+    auth: true,
+  })
+}
+
 export function confirmReceived(id: string) {
   return request<void>(`/c/orders/${id}/confirm`, { method: 'POST', auth: true })
 }

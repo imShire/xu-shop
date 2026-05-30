@@ -1,6 +1,7 @@
 import { PropsWithChildren, useEffect, useState } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import Taro, { useDidShow, useLaunch } from '@tarojs/taro'
+import ErrorBoundary from '@/components/ErrorBoundary'
 import H5Shell from '@/components/H5Shell'
 import { useAuthStore } from '@/stores/auth'
 import { useCartStore } from '@/stores/cart'
@@ -162,9 +163,11 @@ function App({ children }: PropsWithChildren) {
           primaryColorEnd: '#0F4C36',
         }}
       >
-        <H5Shell currentRoute={currentRoute} stackLength={stackLength}>
-          {children}
-        </H5Shell>
+        <ErrorBoundary>
+          <H5Shell currentRoute={currentRoute} stackLength={stackLength}>
+            {children}
+          </H5Shell>
+        </ErrorBoundary>
       </ConfigProvider>
     </QueryClientProvider>
   )

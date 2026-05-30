@@ -3,11 +3,19 @@ import Taro from '@tarojs/taro'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState, useEffect, useRef } from 'react'
 import PriceText from '@/components/PriceText'
-import { getOrderDetail, confirmReceived, getShipTracks, cancelOrder } from '@/services/order'
+import {
+  getOrderDetail,
+  confirmReceived,
+  getShipTracks,
+  cancelOrder,
+  requestCancelOrder,
+  withdrawCancelRequest,
+} from '@/services/order'
 import { usePay } from '@/hooks/usePay'
 import type { OrderStatus } from '@/types/biz'
-import { Skeleton, Cell, CellGroup, Button, SafeArea } from '@/ui/nutui'
+import { Skeleton, Cell, CellGroup, Button, SafeArea, Dialog, TextArea } from '@/ui/nutui'
 import { formatAddress } from '@/utils/address'
+import { showErrorToast } from '@/utils/error'
 import './index.scss'
 
 const STATUS_LABEL: Record<OrderStatus, string> = {
@@ -64,6 +72,9 @@ export default function OrderDetailPage() {
   const id = Taro.getCurrentInstance().router?.params?.id ?? ''
   const queryClient = useQueryClient()
   const [tracksExpanded, setTracksExpanded] = useState(false)
+  const [reasonDialogOpen, setReasonDialogOpen] = useState(false)
+  const [reasonText, setReasonText] = useState('')
+  const [withdrawDialogOpen, setWithdrawDialogOpen] = useState(false)
 
   const { data: order, isLoading } = useQuery({
     queryKey: ['order', id],
@@ -99,7 +110,32 @@ export default function OrderDetailPage() {
       void queryClient.invalidateQueries({ queryKey: ['orders'] })
       void Taro.showToast({ title: '订单已取消', icon: 'success' })
     },
-    onError: () => void Taro.showToast({ title: '取消失败，请重试', icon: 'none' }),
+    onError: (err) => showErrorToast(err, '取消失败，请重试'),
+  })
+
+  const requestCancelMutation = useMutation({
+    mutationFn: (reason: string) => requestCancelOrder(id, reason),
+    onSuccess: () => {
+      setReasonDialogOpen(false)
+      setReasonText('')
+      void queryClient.invalidateQueries({ queryKey: ['order', id] })
+      void queryClient.invalidateQueries({ queryKey: ['orders'] })
+      void queryClient.invalidateQueries({ queryKey: ['aftersale-list'] })
+      void Taro.showToast({ title: '申请已提交，等待审核', icon: 'success' })
+    },
+    onError: (err) => showErrorToast(err, '提交失败，请重试'),
+  })
+
+  const withdrawMutation = useMutation({
+    mutationFn: () => withdrawCancelRequest(id),
+    onSuccess: () => {
+      setWithdrawDialogOpen(false)
+      void queryClient.invalidateQueries({ queryKey: ['order', id] })
+      void queryClient.invalidateQueries({ queryKey: ['orders'] })
+      void queryClient.invalidateQueries({ queryKey: ['aftersale-list'] })
+      void Taro.showToast({ title: '已撤回申请', icon: 'success' })
+    },
+    onError: (err) => showErrorToast(err, '撤回失败，请重试'),
   })
 
   const { pay, loading: payLoading } = usePay({
@@ -127,6 +163,24 @@ export default function OrderDetailPage() {
     })
   }
 
+  const handleOpenReasonDialog = () => {
+    setReasonText('')
+    setReasonDialogOpen(true)
+  }
+
+  const handleSubmitReason = () => {
+    const r = reasonText.trim()
+    if (!r) {
+      void Taro.showToast({ title: '请填写申请原因', icon: 'none' })
+      return
+    }
+    requestCancelMutation.mutate(r)
+  }
+
+  const handleOpenWithdrawDialog = () => {
+    setWithdrawDialogOpen(true)
+  }
+
   const handleBuyAgain = () => {
     const firstItem = order?.items?.[0]
     if (firstItem) {
@@ -149,8 +203,12 @@ export default function OrderDetailPage() {
 
   const hasActionBar =
     order.status === 'pending_payment' ||
+    order.status === 'paid' ||
     order.status === 'shipped' ||
     order.status === 'completed'
+
+  const showRequestCancel = order.status === 'paid' && !order.cancel_request_pending
+  const showWithdrawCancel = order.status === 'paid' && order.cancel_request_pending === true
 
   return (
     <View className='page-shell order-detail-page'>
@@ -278,6 +336,20 @@ export default function OrderDetailPage() {
         </CellGroup>
       )}
 
+      {/* 申请中提示 */}
+      {showWithdrawCancel && (
+        <CellGroup className='order-detail-page__section'>
+          <Cell
+            title='取消申请审核中'
+            description={
+              order.cancel_request_reason
+                ? `申请原因: ${order.cancel_request_reason}`
+                : '商家审核通过后将原路退款'
+            }
+          />
+        </CellGroup>
+      )}
+
       {/* Fixed action bar */}
       {hasActionBar && (
         <View className='order-detail-page__fixed-bar'>
@@ -302,6 +374,22 @@ export default function OrderDetailPage() {
                 </Button>
               </>
             )}
+            {showRequestCancel && (
+              <Button type='default' plain block onClick={handleOpenReasonDialog}>
+                申请取消
+              </Button>
+            )}
+            {showWithdrawCancel && (
+              <Button
+                type='default'
+                plain
+                block
+                loading={withdrawMutation.isPending}
+                onClick={handleOpenWithdrawDialog}
+              >
+                撤回申请
+              </Button>
+            )}
             {order.status === 'shipped' && (
               <Button
                 type='primary'
@@ -321,6 +409,38 @@ export default function OrderDetailPage() {
           <SafeArea position='bottom' />
         </View>
       )}
+
+      {/* 申请取消 Dialog */}
+      <Dialog
+        title='申请取消订单'
+        visible={reasonDialogOpen}
+        confirmText={requestCancelMutation.isPending ? '提交中...' : '提交申请'}
+        cancelText='取消'
+        onConfirm={handleSubmitReason}
+        onCancel={() => setReasonDialogOpen(false)}
+      >
+        <View style={{ padding: '12px 0' }}>
+          <TextArea
+            placeholder='请填写取消原因（必填）'
+            value={reasonText}
+            onChange={(v) => setReasonText(String(v))}
+            maxLength={200}
+            rows={3}
+          />
+        </View>
+      </Dialog>
+
+      {/* 撤回申请 Dialog */}
+      <Dialog
+        title='撤回取消申请'
+        visible={withdrawDialogOpen}
+        confirmText='确定撤回'
+        cancelText='再想想'
+        onConfirm={() => withdrawMutation.mutate()}
+        onCancel={() => setWithdrawDialogOpen(false)}
+      >
+        <View style={{ padding: '12px 0' }}>撤回后将继续等待发货，是否继续？</View>
+      </Dialog>
     </View>
   )
 }

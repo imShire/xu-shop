@@ -19,6 +19,10 @@ export default defineAppConfig({
       pages: ['confirm/index', 'list/index', 'detail/index'],
     },
     {
+      root: 'pages/aftersale',
+      pages: ['list/index'],
+    },
+    {
       root: 'pages/address',
       pages: ['list/index', 'edit/index'],
     },

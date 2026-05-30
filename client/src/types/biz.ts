@@ -203,6 +203,9 @@ export interface Order {
   created_at: string
   updated_at: string
   items?: OrderItem[]
+  cancel_request_pending?: boolean
+  cancel_request_reason?: string
+  cancel_request_at?: string
 }
 
 export interface ShipTrack {
