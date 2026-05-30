@@ -3,12 +3,14 @@ package main
 
 import (
 	"context"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
 	"github.com/hibiken/asynq"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
 
 	"github.com/xushop/xu-shop/internal/bootstrap"
@@ -26,6 +28,7 @@ import (
 	pkgkdniao "github.com/xushop/xu-shop/internal/pkg/kdniao"
 	pkglogger "github.com/xushop/xu-shop/internal/pkg/logger"
 	"github.com/xushop/xu-shop/internal/pkg/stock"
+	"github.com/xushop/xu-shop/internal/pkg/tracer"
 	pkgwxpay "github.com/xushop/xu-shop/internal/pkg/wxpay"
 	"github.com/xushop/xu-shop/internal/pkg/wxsubscribe"
 	"gorm.io/gorm"
@@ -42,6 +45,20 @@ func main() {
 		panic("bootstrap: " + err.Error())
 	}
 	defer app.Close()
+
+	// 初始化 tracer（OTEL_EXPORTER_OTLP_ENDPOINT 为空则 noop）
+	tracerCtx, tracerCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	_, tracerShutdown, err := tracer.Init(tracerCtx, "xu-shop-worker")
+	tracerCancel()
+	if err != nil {
+		pkglogger.L().Warn("tracer init failed, fallback to noop", zap.Error(err))
+	} else {
+		defer func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			_ = tracerShutdown(ctx)
+		}()
+	}
 
 	// ---- 装配依赖 ----
 
@@ -94,7 +111,7 @@ func main() {
 			AppIDOA: cfg.WxOA.AppID,
 			AppIDH5: cfg.WxOA.AppID,
 			MchID:   cfg.WxPay.MchID,
-		})
+		}).WithOrphanRetry(payment.NewOrphanRetryRepo(app.DB))
 
 	// shipping 服务（worker 只需 PullStaleShipments）
 	senderRepo := shipping.NewSenderAddressRepo(app.DB)
@@ -148,6 +165,30 @@ func main() {
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 
+	// 轻量 health/metrics 服务器（供 k8s/Prometheus 探测）
+	healthPort := os.Getenv("WORKER_HEALTH_PORT")
+	if healthPort == "" {
+		healthPort = "8081"
+	}
+	healthMux := http.NewServeMux()
+	healthMux.HandleFunc("/healthz", func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("ok"))
+	})
+	healthMux.Handle("/metrics", promhttp.Handler())
+	healthSrv := &http.Server{
+		Addr:         ":" + healthPort,
+		Handler:      healthMux,
+		ReadTimeout:  5 * time.Second,
+		WriteTimeout: 10 * time.Second,
+	}
+	go func() {
+		pkglogger.L().Info("worker health server starting", zap.String("addr", healthSrv.Addr))
+		if err := healthSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			pkglogger.L().Error("worker health server error", zap.Error(err))
+		}
+	}()
+
 	go func() {
 		pkglogger.L().Info("worker starting")
 		if err := app.AsynqServer.Run(mux); err != nil {
@@ -166,6 +207,9 @@ func main() {
 	pkglogger.L().Info("worker shutting down...")
 	scheduler.Shutdown()
 	app.AsynqServer.Shutdown()
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer shutdownCancel()
+	_ = healthSrv.Shutdown(shutdownCtx)
 	pkglogger.L().Info("worker stopped")
 }
 

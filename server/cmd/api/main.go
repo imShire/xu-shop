@@ -14,6 +14,7 @@ import (
 	"github.com/hibiken/asynq"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/redis/go-redis/v9"
+	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 
@@ -46,8 +47,11 @@ import (
 	pkgkdniao "github.com/xushop/xu-shop/internal/pkg/kdniao"
 	pkglogger "github.com/xushop/xu-shop/internal/pkg/logger"
 	pkgoss "github.com/xushop/xu-shop/internal/pkg/oss"
+	"github.com/xushop/xu-shop/internal/pkg/poster"
 	"github.com/xushop/xu-shop/internal/pkg/qywx"
 	"github.com/xushop/xu-shop/internal/pkg/stock"
+	"github.com/xushop/xu-shop/internal/pkg/tracer"
+	"github.com/xushop/xu-shop/internal/pkg/wxacode"
 	pkgupload "github.com/xushop/xu-shop/internal/pkg/upload"
 	pkgvalidator "github.com/xushop/xu-shop/internal/pkg/validator"
 	"github.com/xushop/xu-shop/internal/pkg/wxlogin"
@@ -69,6 +73,20 @@ func main() {
 	}
 	defer app.Close()
 
+	// 2.1 初始化 tracer（OTEL_EXPORTER_OTLP_ENDPOINT 为空则 noop）
+	tracerCtx, tracerCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	_, tracerShutdown, err := tracer.Init(tracerCtx, "xu-shop-api")
+	tracerCancel()
+	if err != nil {
+		pkglogger.L().Warn("tracer init failed, fallback to noop", zap.Error(err))
+	} else {
+		defer func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			_ = tracerShutdown(ctx)
+		}()
+	}
+
 	// 3. 初始化 gin
 	if cfg.App.Env != "dev" {
 		gin.SetMode(gin.ReleaseMode)
@@ -86,7 +104,9 @@ func main() {
 
 	// 4. 全局中间件
 	r.Use(middleware.Recovery())
+	r.Use(otelgin.Middleware("xu-shop-api"))
 	r.Use(middleware.Logging())
+	r.Use(middleware.PrometheusMiddleware())
 	r.Use(middleware.CORS([]string{"http://localhost:3000", "http://localhost:5273"}))
 
 	// 5. 健康检查 & metrics & 文档
@@ -217,7 +237,8 @@ func main() {
 			MchID:   cfg.WxPay.MchID,
 		}
 		payEnqueuer := &asynqEnqueuerAdapter{client: app.AsynqClient}
-		paymentSvc := payment.NewService(paymentRepo, orderAccessor, userOpenid, wxpayClient, payEnqueuer, paySceneCfg)
+		paymentSvc := payment.NewService(paymentRepo, orderAccessor, userOpenid, wxpayClient, payEnqueuer, paySceneCfg).
+			WithOrphanRetry(payment.NewOrphanRetryRepo(app.DB))
 		paymentHandler := payment.NewHandler(paymentSvc)
 		payment.RegisterRoutes(v1, paymentHandler, app.Redis, app.DB, jwtCfg)
 
@@ -262,6 +283,12 @@ func main() {
 		userTagRepo := privatedomain.NewUserTagRepo(app.DB)
 		shareRepo := privatedomain.NewShareRepo(app.DB)
 		pdSvc := privatedomain.NewService(channelRepo, tagRepo, userTagRepo, shareRepo, qywxClient, app.Redis)
+		// 注入海报依赖（poster + wxacode + oss + product finder）；任一为空将退回占位符
+		posterRenderer := poster.NewImageRenderer()
+		wxacodeClient := wxacode.NewRealClient(cfg, app.Redis)
+		if ossClient != nil {
+			pdSvc = pdSvc.WithPosterDeps(&posterProductFinderAdapter{repo: productRepo}, wxacodeClient, posterRenderer, ossClient)
+		}
 		pdHandler := privatedomain.NewHandler(pdSvc)
 		privatedomain.RegisterRoutes(v1, pdHandler, app.Redis, app.DB, jwtCfg)
 
@@ -623,4 +650,21 @@ func (a *distSmsAdapter) SendWithdrawSms(ctx context.Context, userID int64, code
 		zap.String("code", code),
 	)
 	return nil
+}
+
+// posterProductFinderAdapter 将 product.ProductRepo 适配为 private_domain.PosterProductFinder。
+type posterProductFinderAdapter struct {
+	repo product.ProductRepo
+}
+
+func (a *posterProductFinderAdapter) FindProductForPoster(ctx context.Context, id int64) (*privatedomain.PosterProductInfo, error) {
+	p, err := a.repo.FindByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	return &privatedomain.PosterProductInfo{
+		Title:         p.Title,
+		MainImage:     p.MainImage,
+		PriceMinCents: p.PriceMinCents,
+	}, nil
 }
