@@ -9,7 +9,9 @@
     "preview": "vite preview",
     "lint": "eslint . --ext .vue,.ts,.tsx",
     "typecheck": "vue-tsc -b --noEmit",
-    "gen:api": "openapi-typescript ../server/api/openapi.yaml -o src/types/api.d.ts"
+    "gen:api": "openapi-typescript ../server/api/openapi.yaml -o src/types/api.d.ts",
+    "gen:api:check": "openapi-typescript ../server/api/openapi.yaml -o src/types/api.d.ts.new && diff -u src/types/api.d.ts src/types/api.d.ts.new && rm src/types/api.d.ts.new",
+    "ci:check": "pnpm typecheck && pnpm gen:api:check"
   },
   "dependencies": {
     "@element-plus/icons-vue": "^2.3.0",
