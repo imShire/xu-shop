@@ -3222,14 +3222,21 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** 查询售后列表（需权限 aftersale.view） */
+        /**
+         * 售后单列表（需权限 aftersale.view）
+         * @description 基于 aftersale_order 表返回。v1.4 起取代 Phase 3 legacy 实现（旧实现按 order.cancel_request_pending 过滤）。
+         */
         get: {
             parameters: {
                 query?: {
                     page?: number;
                     page_size?: number;
-                    status?: string;
+                    status?: "applying" | "seller_agreed" | "buyer_returned" | "seller_received" | "completed" | "seller_rejected" | "cancelled" | "closed";
+                    type?: "refund_only" | "refund_return" | "exchange";
+                    /** @description 匹配 aftersale_no / order_no */
                     keyword?: string;
+                    applied_from?: string;
+                    applied_to?: string;
                 };
                 header?: never;
                 path?: never;
@@ -3237,17 +3244,299 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description 售后列表 */
+                /** @description 售后单分页列表（PagedResult 包 AftersaleOrder 数组） */
                 200: {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": components["schemas"]["BaseResp"] & {
+                            data?: components["schemas"]["PagedResult"];
+                        };
+                    };
                 };
             };
         };
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/aftersales/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 售后单详情（含协商记录，需权限 aftersale.view） */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description aftersale_id */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description 售后单详情 + negotiations[] */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BaseResp"] & {
+                            data?: components["schemas"]["AftersaleOrderDetail"];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/aftersales/{id}/agree": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 同意售后（需权限 aftersale.process，敏感接口）
+         * @description - type=refund_only：进入 seller_agreed 后异步触发 payment.ApplyRefund；refund 回调成功后状态推进到 completed。
+         *     - type=refund_return / exchange：进入 seller_agreed 等待买家寄回。
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: {
+                    /** @description 客户端幂等键，重复提交时服务端返回原始结果 */
+                    "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+                };
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        /** @description 可选；备注会写入 aftersale_negotiation(role=seller) */
+                        seller_remark?: string;
+                        /** @description refund_return/exchange 可指定寄回地址；为空走默认发货地址 */
+                        return_address_id?: string | null;
+                    };
+                };
+            };
+            responses: {
+                /** @description 同意成功 */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BaseResp"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/aftersales/{id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 拒绝售后（需权限 aftersale.process） */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        reason: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description 已拒绝 */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BaseResp"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/aftersales/{id}/confirm-received": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 确认收货（需权限 aftersale.process，敏感接口）
+         * @description 要求当前 status=buyer_returned。确认后进入 seller_received，refund_only/refund_return 异步触发 payment.ApplyRefund；exchange 直接置 completed。
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: {
+                    /** @description 客户端幂等键，重复提交时服务端返回原始结果 */
+                    "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+                };
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        seller_remark?: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description 确认成功 */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BaseResp"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/aftersales/{id}/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 商家追加协商内容/补充凭证（需权限 aftersale.process） */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["AftersaleMessageReq"];
+                };
+            };
+            responses: {
+                /** @description 已写入协商记录 */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BaseResp"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/aftersales/{id}/close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 手动关闭售后单（需权限 aftersale.process，敏感接口）
+         * @description 极端兜底关闭；会写 audit_log。要求当前 status 非终态。
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        reason: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description 已关闭 */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BaseResp"];
+                    };
+                };
+            };
+        };
         delete?: never;
         options?: never;
         head?: never;
@@ -3263,7 +3552,12 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** 审批通过取消申请（需权限 aftersale.process，敏感接口） */
+        /**
+         * [deprecated] 审批通过未发货取消申请（需权限 aftersale.process，敏感接口）
+         * @deprecated
+         * @description legacy 端点，仅用于 order.cancel_request_pending=true 的未发货取消申请链路，
+         *     不读写 aftersale_order 表。新接入请使用 `/admin/aftersales/{id}/agree`。
+         */
         post: {
             parameters: {
                 query?: never;
@@ -3299,7 +3593,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** 拒绝取消申请（需权限 aftersale.process） */
+        /**
+         * [deprecated] 拒绝未发货取消申请（需权限 aftersale.process）
+         * @deprecated
+         */
         post: {
             parameters: {
                 query?: never;
@@ -7710,6 +8007,259 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/c/aftersales": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 我的售后列表 */
+        get: {
+            parameters: {
+                query?: {
+                    page?: number;
+                    page_size?: number;
+                    status?: components["schemas"]["AftersaleStatus"];
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description 分页列表 */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BaseResp"] & {
+                            data?: components["schemas"]["PagedResult"];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * 申请售后
+         * @description 要求 order.status ∈ {paid, shipped, completed}。
+         *     服务端校验 refund_amount_cents 上限：item 级 ≤ item.price*qty；整单 ≤ order.pay_cents - 已成功退款合计。
+         *     同一 order_item 已有非终态售后单时返回 409。
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: {
+                    /** @description 客户端幂等键，重复提交时服务端返回原始结果 */
+                    "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+                };
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["AftersaleApplyReq"];
+                };
+            };
+            responses: {
+                /** @description 申请成功，返回 aftersale_no 与 id */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BaseResp"] & {
+                            data?: {
+                                id?: string;
+                                aftersale_no?: string;
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/c/aftersales/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 售后单详情（含协商记录） */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description 详情 */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BaseResp"] & {
+                            data?: components["schemas"]["AftersaleOrderDetail"];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/c/aftersales/{id}/express": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 回填寄回运单
+         * @description 要求当前 status=seller_agreed 且 type ∈ {refund_return, exchange}。
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: {
+                    /** @description 客户端幂等键，重复提交时服务端返回原始结果 */
+                    "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+                };
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["AftersaleExpressReq"];
+                };
+            };
+            responses: {
+                /** @description 回填成功 */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BaseResp"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/c/aftersales/{id}/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 追加协商内容/补充凭证
+         * @description 非终态可用。content 与 evidence 至少一项非空。
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["AftersaleMessageReq"];
+                };
+            };
+            responses: {
+                /** @description 已写入协商记录 */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BaseResp"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/c/aftersales/{id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 用户撤销售后
+         * @description 要求当前 status=applying。撤销后进入 cancelled 终态；用户可重新发起新单。
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description 已撤销 */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BaseResp"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -8369,6 +8919,88 @@ export interface components {
             /** Format: int64 */
             amount_cents: number;
             sms_code: string;
+        };
+        /** @enum {string} */
+        AftersaleType: "refund_only" | "refund_return" | "exchange";
+        /** @enum {string} */
+        AftersaleStatus: "applying" | "seller_agreed" | "buyer_returned" | "seller_received" | "completed" | "seller_rejected" | "cancelled" | "closed";
+        AftersaleExpress: {
+            /** @description 快递公司 code（与 shipping 模块同义） */
+            carrier_code: string;
+            waybill_no: string;
+            /** Format: date-time */
+            readonly shipped_at?: string;
+        };
+        AftersaleNegotiation: {
+            id?: string;
+            /** @enum {string} */
+            role?: "buyer" | "seller" | "system";
+            /** @description role=seller 时有值 */
+            admin_id?: string | null;
+            content?: string;
+            evidence?: string[];
+            /** Format: date-time */
+            created_at?: string;
+        };
+        AftersaleOrder: {
+            id?: string;
+            aftersale_no?: string;
+            order_id?: string;
+            /** @description 冗余 order_no 便于前端展示 */
+            order_no?: string;
+            /** @description NULL = 整单售后 */
+            order_item_id?: string | null;
+            user_id?: string;
+            type?: components["schemas"]["AftersaleType"];
+            status?: components["schemas"]["AftersaleStatus"];
+            reason?: string;
+            /** Format: int64 */
+            refund_amount_cents?: number;
+            buyer_evidence?: string[];
+            buyer_express?: components["schemas"]["AftersaleExpress"] | null;
+            seller_remark?: string;
+            refund_id?: string | null;
+            /** Format: date-time */
+            applied_at?: string;
+            /** Format: date-time */
+            agreed_at?: string | null;
+            /** Format: date-time */
+            returned_at?: string | null;
+            /** Format: date-time */
+            received_at?: string | null;
+            /** Format: date-time */
+            completed_at?: string | null;
+            /** Format: date-time */
+            closed_at?: string | null;
+            /** Format: date-time */
+            auto_close_at?: string;
+            /** @description 订单项快照（product_name/sku_attrs/price/qty/image），便于列表/详情展示 */
+            item_snapshot?: Record<string, never> | null;
+        };
+        AftersaleOrderDetail: components["schemas"]["AftersaleOrder"] & {
+            negotiations?: components["schemas"]["AftersaleNegotiation"][];
+        };
+        AftersaleApplyReq: {
+            order_id: string;
+            /** @description 不传或 null = 整单售后 */
+            order_item_id?: string | null;
+            type: components["schemas"]["AftersaleType"];
+            reason: string;
+            /**
+             * Format: int64
+             * @description exchange 时填 0；其他类型 ≤ 可退上限
+             */
+            refund_amount_cents?: number;
+            evidence?: string[];
+        };
+        AftersaleExpressReq: {
+            carrier_code: string;
+            waybill_no: string;
+        };
+        /** @description content 与 evidence 至少一项非空 */
+        AftersaleMessageReq: {
+            content?: string;
+            evidence?: string[];
         };
     };
     responses: never;

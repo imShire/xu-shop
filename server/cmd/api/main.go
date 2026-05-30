@@ -254,8 +254,11 @@ func main() {
 		shipping.RegisterRoutes(v1, shippingHandler, app.Redis, app.DB, jwtCfg)
 
 		// aftersale 模块
-		aftersaleOrderRepo := &aftersaleOrderRepoAdapter{db: app.DB}
-		aftersaleSvc := aftersale.NewService(aftersaleOrderRepo, paymentSvc)
+		aftersaleRepo := aftersale.NewRepo(app.DB)
+		aftersaleOrderAcc := &aftersaleOrderAccessor{db: app.DB}
+		aftersaleLegacyRepo := &aftersaleLegacyOrderRepo{db: app.DB}
+		aftersaleSvc := aftersale.NewService(aftersaleRepo, aftersaleOrderAcc, paymentSvc, app.DB, app.Redis).
+			WithLegacyOrderRepo(aftersaleLegacyRepo)
 		aftersaleHandler := aftersale.NewHandler(aftersaleSvc)
 		aftersale.RegisterRoutes(v1, aftersaleHandler, app.Redis, app.DB, jwtCfg)
 
@@ -519,12 +522,72 @@ func (a *shipOrderAccessorAdapter) Transition(ctx context.Context, orderID int64
 	return err
 }
 
-// aftersaleOrderRepoAdapter 使用 *gorm.DB 直接实现 aftersale.OrderRepo。
-type aftersaleOrderRepoAdapter struct {
+// aftersaleOrderAccessor 实现 aftersale.OrderAccessor。
+// 直接走 *gorm.DB，避免与 order 模块的内部 DTO 耦合。
+// RefundedCents 通过 refund 表 status='success' 求和得到。
+type aftersaleOrderAccessor struct {
 	db *gorm.DB
 }
 
-func (a *aftersaleOrderRepoAdapter) ListAftersale(ctx context.Context, page, size int) ([]aftersale.AftersaleOrder, int64, error) {
+func (a *aftersaleOrderAccessor) FindOrder(ctx context.Context, orderID int64) (*aftersale.OrderInfo, error) {
+	var row struct {
+		ID          int64      `gorm:"column:id"`
+		OrderNo     string     `gorm:"column:order_no"`
+		UserID      int64      `gorm:"column:user_id"`
+		Status      string     `gorm:"column:status"`
+		PayCents    int64      `gorm:"column:pay_cents"`
+		ShippedAt   *time.Time `gorm:"column:shipped_at"`
+		PaidAt      *time.Time `gorm:"column:paid_at"`
+	}
+	if err := a.db.WithContext(ctx).Table(`"order"`).
+		Select("id", "order_no", "user_id", "status", "pay_cents", "shipped_at", "paid_at").
+		Where("id = ?", orderID).Take(&row).Error; err != nil {
+		return nil, err
+	}
+	var refunded int64
+	if err := a.db.WithContext(ctx).Table("refund").
+		Where("order_id = ? AND status = ?", orderID, "success").
+		Select("COALESCE(SUM(amount_cents), 0)").Scan(&refunded).Error; err != nil {
+		return nil, err
+	}
+	return &aftersale.OrderInfo{
+		ID:            row.ID,
+		OrderNo:       row.OrderNo,
+		UserID:        row.UserID,
+		Status:        row.Status,
+		PayCents:      row.PayCents,
+		RefundedCents: refunded,
+		DeliveredAt:   row.ShippedAt,
+		PaidAt:        row.PaidAt,
+	}, nil
+}
+
+func (a *aftersaleOrderAccessor) FindOrderItem(ctx context.Context, itemID int64) (*aftersale.OrderItemInfo, error) {
+	var row struct {
+		ID         int64 `gorm:"column:id"`
+		OrderID    int64 `gorm:"column:order_id"`
+		PriceCents int64 `gorm:"column:price_cents"`
+		Qty        int   `gorm:"column:qty"`
+	}
+	if err := a.db.WithContext(ctx).Table("order_item").
+		Select("id", "order_id", "price_cents", "qty").
+		Where("id = ?", itemID).Take(&row).Error; err != nil {
+		return nil, err
+	}
+	return &aftersale.OrderItemInfo{
+		ID:            row.ID,
+		OrderID:       row.OrderID,
+		SubtotalCents: row.PriceCents * int64(row.Qty),
+	}, nil
+}
+
+// aftersaleLegacyOrderRepo 实现 aftersale.LegacyOrderRepo，
+// 服务旧 cancel_request_pending 流程的后台处理。
+type aftersaleLegacyOrderRepo struct {
+	db *gorm.DB
+}
+
+func (a *aftersaleLegacyOrderRepo) ListAftersale(ctx context.Context, page, size int) ([]aftersale.LegacyOrder, int64, error) {
 	if page < 1 {
 		page = 1
 	}
@@ -552,9 +615,9 @@ func (a *aftersaleOrderRepoAdapter) ListAftersale(ctx context.Context, page, siz
 		Find(&rows).Error; err != nil {
 		return nil, 0, err
 	}
-	result := make([]aftersale.AftersaleOrder, len(rows))
+	result := make([]aftersale.LegacyOrder, len(rows))
 	for i, r := range rows {
-		result[i] = aftersale.AftersaleOrder{
+		result[i] = aftersale.LegacyOrder{
 			ID:                   r.ID,
 			OrderNo:              r.OrderNo,
 			UserID:               r.UserID,
@@ -568,7 +631,7 @@ func (a *aftersaleOrderRepoAdapter) ListAftersale(ctx context.Context, page, siz
 	return result, total, nil
 }
 
-func (a *aftersaleOrderRepoAdapter) FindByID(ctx context.Context, id int64) (*aftersale.AftersaleOrder, error) {
+func (a *aftersaleLegacyOrderRepo) FindByID(ctx context.Context, id int64) (*aftersale.LegacyOrder, error) {
 	var row struct {
 		ID                   int64      `gorm:"column:id"`
 		OrderNo              string     `gorm:"column:order_no"`
@@ -583,7 +646,7 @@ func (a *aftersaleOrderRepoAdapter) FindByID(ctx context.Context, id int64) (*af
 	if err != nil {
 		return nil, err
 	}
-	return &aftersale.AftersaleOrder{
+	return &aftersale.LegacyOrder{
 		ID:                   row.ID,
 		OrderNo:              row.OrderNo,
 		UserID:               row.UserID,
@@ -595,7 +658,7 @@ func (a *aftersaleOrderRepoAdapter) FindByID(ctx context.Context, id int64) (*af
 	}, nil
 }
 
-func (a *aftersaleOrderRepoAdapter) UpdateCancelRequest(ctx context.Context, id int64, pending bool, _ *time.Time) error {
+func (a *aftersaleLegacyOrderRepo) UpdateCancelRequest(ctx context.Context, id int64, pending bool, _ *time.Time) error {
 	return a.db.WithContext(ctx).Table(`"order"`).Where("id = ?", id).
 		Updates(map[string]any{
 			"cancel_request_pending": pending,

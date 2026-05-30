@@ -20,7 +20,7 @@ export default defineAppConfig({
     },
     {
       root: 'pages/aftersale',
-      pages: ['list/index'],
+      pages: ['list/index', 'apply/index', 'detail/index', 'express/index'],
     },
     {
       root: 'pages/address',

@@ -210,6 +210,22 @@ export default function OrderDetailPage() {
   const showRequestCancel = order.status === 'paid' && !order.cancel_request_pending
   const showWithdrawCancel = order.status === 'paid' && order.cancel_request_pending === true
 
+  // 申请售后：paid / shipped / completed；completed 时限 7 天
+  const canApplyAftersale = (() => {
+    if (order.status === 'paid' || order.status === 'shipped') return true
+    if (order.status === 'completed' && order.completed_at) {
+      const days = (Date.now() - new Date(order.completed_at).getTime()) / 86400000
+      return days <= 7
+    }
+    return false
+  })()
+
+  const handleApplyAftersale = () => {
+    void Taro.navigateTo({
+      url: `/pages/aftersale/apply/index?order_id=${order.id}`,
+    })
+  }
+
   return (
     <View className='page-shell order-detail-page'>
       {/* Status card */}
@@ -403,6 +419,11 @@ export default function OrderDetailPage() {
             {order.status === 'completed' && (
               <Button type='default' plain block onClick={handleBuyAgain}>
                 再次购买
+              </Button>
+            )}
+            {canApplyAftersale && (
+              <Button type='default' plain block onClick={handleApplyAftersale}>
+                申请售后
               </Button>
             )}
           </View>

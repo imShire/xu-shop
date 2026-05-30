@@ -214,13 +214,89 @@ export interface ShipTrack {
   status?: string
 }
 
-export interface AftersaleStatus {
+// ─── 售后（v1.4）──────────────────────────────────────────────────────────
+
+export type AftersaleType = 'refund_only' | 'refund_return' | 'exchange'
+
+export type AftersaleStatus =
+  | 'applying'
+  | 'seller_agreed'
+  | 'buyer_returned'
+  | 'seller_received'
+  | 'completed'
+  | 'seller_rejected'
+  | 'cancelled'
+  | 'closed'
+
+export interface AftersaleExpress {
+  carrier_code: string
+  waybill_no: string
+  shipped_at?: string
+}
+
+export interface AftersaleNegotiation {
   id: string
-  order_id: string
-  type: 'refund' | 'return_refund'
-  status: 'pending' | 'approved' | 'rejected' | 'completed'
-  reason: string
+  role: 'buyer' | 'seller' | 'system'
+  admin_id?: string | null
+  content: string
+  evidence?: string[]
   created_at: string
+}
+
+export interface AftersaleItemSnapshot {
+  product_name?: string
+  sku_attrs?: Record<string, string> | string[]
+  price_cents?: number
+  qty?: number
+  image?: string
+}
+
+export interface AftersaleOrder {
+  id: string
+  aftersale_no: string
+  order_id: string
+  order_no: string
+  order_item_id?: string | null
+  user_id: string
+  type: AftersaleType
+  status: AftersaleStatus
+  reason: string
+  refund_amount_cents: number
+  buyer_evidence?: string[]
+  buyer_express?: AftersaleExpress | null
+  seller_remark?: string
+  refund_id?: string | null
+  applied_at: string
+  agreed_at?: string | null
+  returned_at?: string | null
+  received_at?: string | null
+  completed_at?: string | null
+  closed_at?: string | null
+  auto_close_at: string
+  item_snapshot?: AftersaleItemSnapshot | null
+}
+
+export interface AftersaleOrderDetail extends AftersaleOrder {
+  negotiations?: AftersaleNegotiation[]
+}
+
+export interface AftersaleApplyReq {
+  order_id: string
+  order_item_id?: string | null
+  type: AftersaleType
+  reason: string
+  refund_amount_cents: number
+  evidence?: string[]
+}
+
+export interface AftersaleExpressReq {
+  carrier_code: string
+  waybill_no: string
+}
+
+export interface AftersaleMessageReq {
+  content?: string
+  evidence?: string[]
 }
 
 // ─── v1.2 会员 / 优惠券 ──────────────────────────────────────────────────────

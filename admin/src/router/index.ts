@@ -94,6 +94,11 @@ export const asyncRoutes = [
         component: () => import('@/views/aftersale/AftersaleList.vue'),
         meta: { title: '售后管理', perm: 'aftersale.view', icon: 'Service' },
       },
+      {
+        path: 'aftersale/detail/:id',
+        component: () => import('@/views/aftersale/AftersaleDetail.vue'),
+        meta: { title: '售后详情', perm: 'aftersale.view', hidden: true },
+      },
 
       // 支付
       {

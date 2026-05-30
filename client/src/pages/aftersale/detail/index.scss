@@ -1,0 +1,166 @@
+.aftersale-detail-page {
+  min-height: 100vh;
+  background-color: #f5f5f5;
+  padding-bottom: 120px;
+
+  &__status-card {
+    margin: 0;
+    padding: 18px 14px;
+    background: linear-gradient(135deg, #0f4c36, #1a7a55);
+    color: #fff;
+  }
+
+  &__status-text {
+    font-size: 18px;
+    font-weight: 600;
+  }
+
+  &__status-sub {
+    margin-top: 4px;
+    font-size: 12px;
+    opacity: 0.85;
+  }
+
+  &__section {
+    margin-top: 12px;
+    background-color: #fff;
+    padding: 14px;
+  }
+
+  &__section-title {
+    font-size: 14px;
+    color: #333;
+    margin-bottom: 10px;
+    font-weight: 500;
+  }
+
+  &__meta-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+    color: #555;
+    padding: 4px 0;
+  }
+
+  &__timeline {
+    padding: 4px 0;
+  }
+
+  &__timeline-step {
+    display: flex;
+    padding: 6px 0;
+  }
+
+  &__timeline-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background-color: #d9d9d9;
+    margin: 6px 10px 0 0;
+    flex-shrink: 0;
+
+    &--active {
+      background-color: #0f4c36;
+    }
+  }
+
+  &__timeline-content {
+    flex: 1;
+  }
+
+  &__timeline-title {
+    font-size: 13px;
+    color: #333;
+  }
+
+  &__timeline-time {
+    font-size: 11px;
+    color: #999;
+  }
+
+  &__nego-item {
+    padding: 10px 0;
+    border-bottom: 1px dashed #eee;
+
+    &:last-child {
+      border-bottom: none;
+    }
+  }
+
+  &__nego-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 4px;
+    font-size: 12px;
+    color: #999;
+  }
+
+  &__nego-role {
+    color: #0f4c36;
+    font-weight: 500;
+
+    &--seller { color: #f08c44; }
+    &--system { color: #999; }
+  }
+
+  &__nego-content {
+    font-size: 14px;
+    color: #333;
+    line-height: 1.5;
+  }
+
+  &__nego-images {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 6px;
+  }
+
+  &__nego-img {
+    width: 64px;
+    height: 64px;
+    border-radius: 4px;
+    background-color: #f5f5f5;
+  }
+
+  &__compose {
+    margin-top: 12px;
+    background-color: #fff;
+    padding: 14px;
+  }
+
+  &__compose-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 10px;
+  }
+
+  &__action-bar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #fff;
+    border-top: 1px solid #f0f0f0;
+    padding: 8px 14px;
+  }
+
+  &__action-row {
+    display: flex;
+    gap: 10px;
+  }
+
+  &__evidence-thumbs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
+  }
+
+  &__evidence-thumb {
+    width: 64px;
+    height: 64px;
+    border-radius: 4px;
+    background-color: #f5f5f5;
+  }
+}

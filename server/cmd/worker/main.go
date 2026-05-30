@@ -18,13 +18,17 @@ import (
 	"github.com/xushop/xu-shop/internal/jobs"
 	"github.com/xushop/xu-shop/internal/modules/account"
 	"github.com/xushop/xu-shop/internal/modules/address"
+	"github.com/xushop/xu-shop/internal/modules/distribution"
 	"github.com/xushop/xu-shop/internal/modules/inventory"
+	"github.com/xushop/xu-shop/internal/modules/marketing"
 	"github.com/xushop/xu-shop/internal/modules/notification"
 	"github.com/xushop/xu-shop/internal/modules/order"
 	"github.com/xushop/xu-shop/internal/modules/payment"
 	"github.com/xushop/xu-shop/internal/modules/product"
+	"github.com/xushop/xu-shop/internal/modules/recall"
 	"github.com/xushop/xu-shop/internal/modules/shipping"
 	"github.com/xushop/xu-shop/internal/modules/stats"
+	"github.com/xushop/xu-shop/internal/modules/tag"
 	pkgkdniao "github.com/xushop/xu-shop/internal/pkg/kdniao"
 	pkglogger "github.com/xushop/xu-shop/internal/pkg/logger"
 	"github.com/xushop/xu-shop/internal/pkg/stock"
@@ -139,15 +143,55 @@ func main() {
 	statsRepo := stats.NewStatsRepo(app.DB)
 	statsSvc := stats.NewService(statsRepo)
 
+	// marketing 服务（worker 需要 8 个 cron + event job）
+	mkSvc := marketing.NewService(app.DB)
+
+	// ---- tag / recall 装配（B5 修订）----
+	tagSvc := tag.NewService(tag.NewRepo(app.DB), app.DB)
+	// recall 依赖 coupon + notification；复用上方 mkSvc.Coupon
+	recallSvc := recall.NewService(recall.NewRepo(app.DB), app.DB, app.Redis, tagSvc, mkSvc.Coupon, notifSvc)
+
+	// ---- distribution 装配（B6 修订）----
+	// transferClient：复用 wxpay client 的转账能力；无法转型则回落 mock
+	var transferClient pkgwxpay.TransferClient
+	if tc, ok := wxpayClient.(pkgwxpay.TransferClient); ok {
+		transferClient = tc
+	} else {
+		transferClient = &pkgwxpay.MockClient{}
+	}
+	distCfg := distribution.Config{
+		TransferAppID:  cfg.WxMP.AppID,
+		TransferScene:  os.Getenv("WXPAY_TRANSFER_SCENE"),
+		TransferNotify: cfg.WxPay.NotifyURL + "/transfer",
+		ShareBaseURL:   os.Getenv("SHARE_BASE_URL"),
+	}
+	// worker 端 openid/sms/pwd 均不被 6 个 cron 路径调用，传 nil 安全
+	distSvc := distribution.NewService(distribution.NewRepo(app.DB), app.Redis, transferClient, nil, nil, nil, distCfg)
+
 	// ---- 注册 asynq mux ----
 	mux := asynq.NewServeMux()
 	mux.Handle(jobs.TaskOrderClose, jobs.NewOrderCloseHandler(closeAdapter))
+
+	// tag / recall handlers（B5）
+	mux.Handle(jobs.TaskTagRecompute, jobs.NewTagRecomputeHandler(tagSvc))
+	mux.Handle(jobs.TaskTagSnapshot, jobs.NewTagSnapshotHandler(tagSvc))
+	mux.Handle(jobs.TaskRecallCronScan, jobs.NewRecallCronScanHandler(recallSvc))
+	mux.Handle(jobs.TaskRecallEventHandler, jobs.NewRecallEventHandler(recallSvc))
+	mux.Handle(jobs.TaskRecallExecute, jobs.NewRecallExecuteHandler(recallSvc))
 	mux.Handle(jobs.TaskOrderAutoConfirm, jobs.NewOrderAutoConfirmHandler(confirmAdapter))
 	mux.Handle(jobs.TaskPaymentAutoRefund, jobs.NewPaymentAutoRefundHandler(paymentSvc))
 	mux.Handle(jobs.TaskExpressPull, jobs.NewExpressPullHandler(shippingSvc))
 	mux.Handle(jobs.TaskNotificationSend, jobs.NewNotificationSendHandler(notifSvc))
 	mux.Handle(jobs.TaskStatsAggregate, jobs.NewStatsAggregateHandler(statsSvc))
 	mux.Handle(jobs.TaskPaymentActiveQuery, jobs.NewPaymentActiveQueryHandler(orderRepo, paymentSvc, wxpayClient))
+
+	// distribution 6 个 cron handler
+	mux.Handle(jobs.TaskCommissionUnfreeze, jobs.NewCommissionUnfreezeHandler(distSvc))
+	mux.Handle(jobs.TaskCommissionRecompute, jobs.NewCommissionRecomputeHandler(distSvc))
+	mux.Handle(jobs.TaskCommissionAntifraudScan, jobs.NewCommissionAntifraudScanHandler(distSvc))
+	mux.Handle(jobs.TaskWithdrawActiveQuery, jobs.NewWithdrawActiveQueryHandler(distSvc))
+	mux.Handle(jobs.TaskWithdrawReconcile, jobs.NewWithdrawReconcileHandler(distSvc))
+	mux.Handle(jobs.TaskShareClickFlush, jobs.NewShareClickFlushHandler(distSvc))
 
 	// ---- asynq Scheduler：定时投递 periodic 任务 ----
 	scheduler := asynq.NewScheduler(
@@ -160,6 +204,41 @@ func main() {
 	// 每 2 分钟触发一次主动查单（payload 为空）
 	if _, err := scheduler.Register("*/2 * * * *", asynq.NewTask(jobs.TaskPaymentActiveQuery, nil)); err != nil {
 		pkglogger.L().Fatal("scheduler register payment:active_query failed", zap.Error(err))
+	}
+
+	// marketing 八个 cron + event job
+	wireMarketingJobs(mux, scheduler, mkSvc, notifSvc, userRepo, app.AsynqClient, app.Redis, app.DB)
+
+	// 每日 04:00 全量重算用户标签
+	if _, err := scheduler.Register("0 4 * * *", asynq.NewTask(jobs.TaskTagRecompute, nil)); err != nil {
+		pkglogger.L().Fatal("scheduler register tag:recompute failed", zap.Error(err))
+	}
+	// 每日 04:30 标签快照
+	if _, err := scheduler.Register("30 4 * * *", asynq.NewTask(jobs.TaskTagSnapshot, nil)); err != nil {
+		pkglogger.L().Fatal("scheduler register tag:snapshot failed", zap.Error(err))
+	}
+	// 每 10 分钟扫描 cron 类型召回活动
+	if _, err := scheduler.Register("*/10 * * * *", asynq.NewTask(jobs.TaskRecallCronScan, nil)); err != nil {
+		pkglogger.L().Fatal("scheduler register recall:cron-scan failed", zap.Error(err))
+	}
+
+	// distribution 6 个 cron 入口
+	distSchedules := []struct {
+		spec string
+		name string
+	}{
+		{"0 5 * * *", jobs.TaskCommissionUnfreeze},      // 每日 05:00 佣金解冻
+		{"30 5 * * *", jobs.TaskCommissionRecompute},    // 每日 05:30 佣金重算
+		{"0 * * * *", jobs.TaskCommissionAntifraudScan}, // 每小时 反作弊扫描
+		{"*/5 * * * *", jobs.TaskWithdrawActiveQuery},   // 每 5 分钟 提现查单
+		{"0 6 * * *", jobs.TaskWithdrawReconcile},       // 每日 06:00 提现对账
+		{"* * * * *", jobs.TaskShareClickFlush},         // 每分钟 分享点击 flush
+	}
+	for _, sch := range distSchedules {
+		if _, err := scheduler.Register(sch.spec, asynq.NewTask(sch.name, nil)); err != nil {
+			pkglogger.L().Fatal("scheduler register failed",
+				zap.String("task", sch.name), zap.Error(err))
+		}
 	}
 
 	quit := make(chan os.Signal, 1)

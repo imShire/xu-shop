@@ -25,6 +25,8 @@ tags:
     description: 微信支付
   - name: C端物流
     description: 订单物流轨迹
+  - name: C端售后
+    description: C 端售后单（申请 / 协商 / 寄回 / 撤销）
   - name: Admin认证
     description: 管理员登录/注销相关接口
   - name: Admin用户
@@ -914,6 +916,106 @@ components:
       properties:
         amount_cents: { type: integer, format: int64 }
         sms_code: { type: string }
+
+    # ========== 售后（v1.4）==========
+    AftersaleType:
+      type: string
+      enum: [refund_only, refund_return, exchange]
+    AftersaleStatus:
+      type: string
+      enum: [applying, seller_agreed, buyer_returned, seller_received, completed, seller_rejected, cancelled, closed]
+    AftersaleExpress:
+      type: object
+      required: [carrier_code, waybill_no]
+      properties:
+        carrier_code: { type: string, description: 快递公司 code（与 shipping 模块同义） }
+        waybill_no:   { type: string }
+        shipped_at:   { type: string, format: date-time, readOnly: true }
+    AftersaleNegotiation:
+      type: object
+      properties:
+        id:         { type: string }
+        role:       { type: string, enum: [buyer, seller, system] }
+        admin_id:   { type: string, nullable: true, description: role=seller 时有值 }
+        content:    { type: string }
+        evidence:
+          type: array
+          maxItems: 6
+          items: { type: string, description: OSS 图片 URL }
+        created_at: { type: string, format: date-time }
+    AftersaleOrder:
+      type: object
+      properties:
+        id:                   { type: string }
+        aftersale_no:         { type: string }
+        order_id:             { type: string }
+        order_no:             { type: string, description: 冗余 order_no 便于前端展示 }
+        order_item_id:        { type: string, nullable: true, description: NULL = 整单售后 }
+        user_id:              { type: string }
+        type:                 { $ref: '#/components/schemas/AftersaleType' }
+        status:               { $ref: '#/components/schemas/AftersaleStatus' }
+        reason:               { type: string }
+        refund_amount_cents:  { type: integer, format: int64 }
+        buyer_evidence:
+          type: array
+          maxItems: 6
+          items: { type: string }
+        buyer_express:
+          allOf:
+            - $ref: '#/components/schemas/AftersaleExpress'
+          nullable: true
+        seller_remark:        { type: string }
+        refund_id:            { type: string, nullable: true }
+        applied_at:           { type: string, format: date-time }
+        agreed_at:            { type: string, format: date-time, nullable: true }
+        returned_at:          { type: string, format: date-time, nullable: true }
+        received_at:          { type: string, format: date-time, nullable: true }
+        completed_at:         { type: string, format: date-time, nullable: true }
+        closed_at:            { type: string, format: date-time, nullable: true }
+        auto_close_at:        { type: string, format: date-time }
+        item_snapshot:
+          type: object
+          nullable: true
+          description: 订单项快照（product_name/sku_attrs/price/qty/image），便于列表/详情展示
+    AftersaleOrderDetail:
+      allOf:
+        - $ref: '#/components/schemas/AftersaleOrder'
+        - type: object
+          properties:
+            negotiations:
+              type: array
+              items: { $ref: '#/components/schemas/AftersaleNegotiation' }
+    AftersaleApplyReq:
+      type: object
+      required: [order_id, type, reason]
+      properties:
+        order_id:             { type: string }
+        order_item_id:        { type: string, nullable: true, description: 不传或 null = 整单售后 }
+        type:                 { $ref: '#/components/schemas/AftersaleType' }
+        reason:               { type: string, minLength: 2, maxLength: 200 }
+        refund_amount_cents:  { type: integer, format: int64, minimum: 0, description: exchange 时填 0；其他类型 ≤ 可退上限 }
+        evidence:
+          type: array
+          maxItems: 6
+          items: { type: string, description: 已直传到 OSS 的图片 URL（白名单域） }
+    AftersaleExpressReq:
+      type: object
+      required: [carrier_code, waybill_no]
+      properties:
+        carrier_code: { type: string }
+        waybill_no:   { type: string }
+    AftersaleMessageReq:
+      type: object
+      properties:
+        content:
+          type: string
+          minLength: 1
+          maxLength: 1000
+        evidence:
+          type: array
+          maxItems: 6
+          items: { type: string }
+      description: content 与 evidence 至少一项非空
 
   parameters:
     IdempotencyKey:
@@ -2730,34 +2832,171 @@ paths:
         "200":
           description: 更新成功
 
-  # ========== Admin 售后（Phase 3）==========
+  # ========== Admin 售后（v1.4：售后单独立链路，取代 Phase 3 legacy GET）==========
   /admin/aftersales:
     get:
       tags: [Admin售后]
-      summary: 查询售后列表（需权限 aftersale.view）
+      summary: 售后单列表（需权限 aftersale.view）
+      description: |
+        基于 aftersale_order 表返回。v1.4 起取代 Phase 3 legacy 实现（旧实现按 order.cancel_request_pending 过滤）。
       security:
         - BearerAuth: []
       parameters:
-        - name: page
-          in: query
-          schema: { type: integer, default: 1 }
-        - name: page_size
-          in: query
-          schema: { type: integer, default: 20 }
-        - name: status
-          in: query
-          schema: { type: string }
-        - name: keyword
-          in: query
-          schema: { type: string }
+        - { name: page,          in: query, schema: { type: integer, default: 1 } }
+        - { name: page_size,     in: query, schema: { type: integer, default: 20 } }
+        - { name: status,        in: query, schema: { type: string, enum: [applying, seller_agreed, buyer_returned, seller_received, completed, seller_rejected, cancelled, closed] } }
+        - { name: type,          in: query, schema: { type: string, enum: [refund_only, refund_return, exchange] } }
+        - { name: keyword,       in: query, schema: { type: string }, description: 匹配 aftersale_no / order_no }
+        - { name: applied_from,  in: query, schema: { type: string, format: date-time } }
+        - { name: applied_to,    in: query, schema: { type: string, format: date-time } }
       responses:
         "200":
-          description: 售后列表
+          description: 售后单分页列表（PagedResult 包 AftersaleOrder 数组）
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/BaseResp'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/PagedResult' }
 
+  /admin/aftersales/{id}:
+    get:
+      tags: [Admin售后]
+      summary: 售后单详情（含协商记录，需权限 aftersale.view）
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string }, description: aftersale_id }
+      responses:
+        "200":
+          description: 售后单详情 + negotiations[]
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/BaseResp'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/AftersaleOrderDetail' }
+
+  /admin/aftersales/{id}/agree:
+    post:
+      tags: [Admin售后]
+      summary: 同意售后（需权限 aftersale.process，敏感接口）
+      description: |
+        - type=refund_only：进入 seller_agreed 后异步触发 payment.ApplyRefund；refund 回调成功后状态推进到 completed。
+        - type=refund_return / exchange：进入 seller_agreed 等待买家寄回。
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                seller_remark: { type: string, maxLength: 500, description: "可选；备注会写入 aftersale_negotiation(role=seller)" }
+                return_address_id: { type: string, nullable: true, description: "refund_return/exchange 可指定寄回地址；为空走默认发货地址" }
+      responses:
+        "200":
+          description: 同意成功
+          content: { application/json: { schema: { $ref: '#/components/schemas/BaseResp' } } }
+
+  /admin/aftersales/{id}/reject:
+    post:
+      tags: [Admin售后]
+      summary: 拒绝售后（需权限 aftersale.process）
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason: { type: string, minLength: 2, maxLength: 200 }
+      responses:
+        "200":
+          description: 已拒绝
+          content: { application/json: { schema: { $ref: '#/components/schemas/BaseResp' } } }
+
+  /admin/aftersales/{id}/confirm-received:
+    post:
+      tags: [Admin售后]
+      summary: 确认收货（需权限 aftersale.process，敏感接口）
+      description: |
+        要求当前 status=buyer_returned。确认后进入 seller_received，refund_only/refund_return 异步触发 payment.ApplyRefund；exchange 直接置 completed。
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                seller_remark: { type: string, maxLength: 500 }
+      responses:
+        "200":
+          description: 确认成功
+          content: { application/json: { schema: { $ref: '#/components/schemas/BaseResp' } } }
+
+  /admin/aftersales/{id}/messages:
+    post:
+      tags: [Admin售后]
+      summary: 商家追加协商内容/补充凭证（需权限 aftersale.process）
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AftersaleMessageReq' }
+      responses:
+        "200":
+          description: 已写入协商记录
+          content: { application/json: { schema: { $ref: '#/components/schemas/BaseResp' } } }
+
+  /admin/aftersales/{id}/close:
+    post:
+      tags: [Admin售后]
+      summary: 手动关闭售后单（需权限 aftersale.process，敏感接口）
+      description: 极端兜底关闭；会写 audit_log。要求当前 status 非终态。
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason: { type: string, minLength: 2, maxLength: 200 }
+      responses:
+        "200":
+          description: 已关闭
+          content: { application/json: { schema: { $ref: '#/components/schemas/BaseResp' } } }
+
+  # ========== Admin 售后（legacy · 未发货取消申请链路，仅服务 order.cancel_request_pending）==========
   /admin/aftersales/{order_id}/approve:
     post:
       tags: [Admin售后]
-      summary: 审批通过取消申请（需权限 aftersale.process，敏感接口）
+      summary: "[deprecated] 审批通过未发货取消申请（需权限 aftersale.process，敏感接口）"
+      description: |
+        legacy 端点，仅用于 order.cancel_request_pending=true 的未发货取消申请链路，
+        不读写 aftersale_order 表。新接入请使用 `/admin/aftersales/{id}/agree`。
+      deprecated: true
       security:
         - BearerAuth: []
       parameters:
@@ -2772,7 +3011,8 @@ paths:
   /admin/aftersales/{order_id}/reject:
     post:
       tags: [Admin售后]
-      summary: 拒绝取消申请（需权限 aftersale.process）
+      summary: "[deprecated] 拒绝未发货取消申请（需权限 aftersale.process）"
+      deprecated: true
       security:
         - BearerAuth: []
       parameters:
@@ -4462,3 +4702,136 @@ paths:
                 type: object
                 properties:
                   code: { type: string, example: SUCCESS }
+
+  # ========== C 端售后（v1.4）==========
+  /c/aftersales:
+    post:
+      tags: [C端售后]
+      summary: 申请售后
+      description: |
+        要求 order.status ∈ {paid, shipped, completed}。
+        服务端校验 refund_amount_cents 上限：item 级 ≤ item.price*qty；整单 ≤ order.pay_cents - 已成功退款合计。
+        同一 order_item 已有非终态售后单时返回 409。
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AftersaleApplyReq' }
+      responses:
+        "200":
+          description: 申请成功，返回 aftersale_no 与 id
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/BaseResp'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          id:           { type: string }
+                          aftersale_no: { type: string }
+    get:
+      tags: [C端售后]
+      summary: 我的售后列表
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+      parameters:
+        - { name: page,      in: query, schema: { type: integer, default: 1 } }
+        - { name: page_size, in: query, schema: { type: integer, default: 20 } }
+        - { name: status,    in: query, schema: { $ref: '#/components/schemas/AftersaleStatus' } }
+      responses:
+        "200":
+          description: 分页列表
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/BaseResp'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/PagedResult' }
+
+  /c/aftersales/{id}:
+    get:
+      tags: [C端售后]
+      summary: 售后单详情（含协商记录）
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: 详情
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/BaseResp'
+                  - type: object
+                    properties:
+                      data: { $ref: '#/components/schemas/AftersaleOrderDetail' }
+
+  /c/aftersales/{id}/express:
+    post:
+      tags: [C端售后]
+      summary: 回填寄回运单
+      description: 要求当前 status=seller_agreed 且 type ∈ {refund_return, exchange}。
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AftersaleExpressReq' }
+      responses:
+        "200":
+          description: 回填成功
+          content: { application/json: { schema: { $ref: '#/components/schemas/BaseResp' } } }
+
+  /c/aftersales/{id}/messages:
+    post:
+      tags: [C端售后]
+      summary: 追加协商内容/补充凭证
+      description: 非终态可用。content 与 evidence 至少一项非空。
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AftersaleMessageReq' }
+      responses:
+        "200":
+          description: 已写入协商记录
+          content: { application/json: { schema: { $ref: '#/components/schemas/BaseResp' } } }
+
+  /c/aftersales/{id}/cancel:
+    post:
+      tags: [C端售后]
+      summary: 用户撤销售后
+      description: 要求当前 status=applying。撤销后进入 cancelled 终态；用户可重新发起新单。
+      security:
+        - BearerAuth: []
+        - CookieAuth: []
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: 已撤销
+          content: { application/json: { schema: { $ref: '#/components/schemas/BaseResp' } } }
