@@ -78,6 +78,7 @@ type Service struct {
 	wxpayClient wxpay.Client
 	enqueuer   AsynqEnqueuer
 	sceneCfg   WxPaySceneConfig
+	orphanRepo OrphanRetryRepo // 可选；nil 时 enqueue 失败仅 log warn
 }
 
 // NewService 构造支付服务。
@@ -97,6 +98,12 @@ func NewService(
 		enqueuer:    enqueuer,
 		sceneCfg:    sceneCfg,
 	}
+}
+
+// WithOrphanRetry 注入自动退款 enqueue 失败兜底持久化仓库。
+func (s *Service) WithOrphanRetry(repo OrphanRetryRepo) *Service {
+	s.orphanRepo = repo
+	return s
 }
 
 // ---- Prepay ----
@@ -354,6 +361,12 @@ func (s *Service) HandleWxpayNotify(ctx context.Context, body []byte, headers ma
 			task := asynq.NewTask(TaskPaymentAutoRefund, payload)
 			if _, enqErr := s.enqueuer.EnqueueContext(ctx, task, asynq.MaxRetry(3)); enqErr != nil {
 				logger.Ctx(ctx).Error("enqueue auto_refund failed", zap.Error(enqErr))
+				// 兑底：写入 payment_orphan_retry 由 reconciler 扫重试
+				if s.orphanRepo != nil {
+					if persistErr := s.orphanRepo.Enqueue(ctx, pmtID, result.TransactionID, autoRefundAmt, autoRefundReason, 1*time.Minute); persistErr != nil {
+						logger.Ctx(ctx).Error("persist orphan_retry failed", zap.Error(persistErr))
+					}
+				}
 			}
 		}
 		logger.Ctx(ctx).Warn("wxpay notify: auto refund enqueued",
@@ -473,6 +486,11 @@ func (s *Service) HandleQuerySuccess(ctx context.Context, orderNo, transactionID
 			task := asynq.NewTask(TaskPaymentAutoRefund, payload)
 			if _, enqErr := s.enqueuer.EnqueueContext(ctx, task, asynq.MaxRetry(3)); enqErr != nil {
 				logger.Ctx(ctx).Error("active_query: enqueue auto_refund failed", zap.Error(enqErr))
+				if s.orphanRepo != nil {
+					if persistErr := s.orphanRepo.Enqueue(ctx, pmtID, transactionID, amtCents, autoRefundReason, 1*time.Minute); persistErr != nil {
+						logger.Ctx(ctx).Error("active_query: persist orphan_retry failed", zap.Error(persistErr))
+					}
+				}
 			}
 		}
 		logger.Ctx(ctx).Warn("active_query: amount mismatch, auto refund enqueued",
