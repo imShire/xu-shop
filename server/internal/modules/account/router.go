@@ -58,8 +58,8 @@ func RegisterRoutes(r *gin.RouterGroup, h *Handler, rdb *redis.Client, db *gorm.
 
 		admins := admin.Group("/admins")
 		admins.GET("", adminAuth("system.admin.view"), h.ListAdmins)
-		admins.POST("", adminAuth("system.admin.create"), h.CreateAdmin)
-		admins.PUT("/:id", adminAuth("system.admin.edit"), h.UpdateAdmin)
+		admins.POST("", sensitive, adminAuth("system.admin.create"), h.CreateAdmin)
+		admins.PUT("/:id", sensitive, adminAuth("system.admin.edit"), h.UpdateAdmin)
 		// sensitive 必须在 adminAuth 之前
 		admins.POST("/:id/disable", sensitive, adminAuth("system.admin.disable"), h.DisableAdmin)
 		admins.POST("/:id/enable", sensitive, adminAuth("system.admin.enable"), h.EnableAdmin)
@@ -76,7 +76,7 @@ func RegisterRoutes(r *gin.RouterGroup, h *Handler, rdb *redis.Client, db *gorm.
 
 		users := admin.Group("/users")
 		users.GET("", adminAuth("user.view"), h.AdminListUsers)
-		users.POST("", adminAuth("user.create"), h.AdminCreateUser)
+		users.POST("", sensitive, adminAuth("user.create"), h.AdminCreateUser)
 		users.GET("/:id", adminAuth("user.view"), h.AdminGetUser)
 		// sensitive 必须在 adminAuth 之前
 		users.POST("/:id/disable", sensitive, adminAuth("user.disable"), h.AdminDisableUser)
