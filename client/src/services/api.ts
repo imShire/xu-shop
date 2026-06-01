@@ -1,5 +1,6 @@
 import Taro from '@tarojs/taro'
 import type { ApiEnvelope } from '@/types/biz'
+import { report } from '@/utils/clog'
 import { isH5 } from '@/utils/platform'
 import { storage } from '@/utils/storage'
 
@@ -75,12 +76,20 @@ export async function request<T>(
   const url = buildUrl(path, params)
 
   if (isH5) {
-    const response = await fetch(url, {
-      method,
-      headers,
-      credentials: 'include',
-      body: data && method !== 'GET' ? JSON.stringify(data) : undefined,
-    })
+    let response: Response
+    try {
+      response = await fetch(url, {
+        method,
+        headers,
+        credentials: 'include',
+        body: data && method !== 'GET' ? JSON.stringify(data) : undefined,
+      })
+    } catch (err) {
+      report('warn', 'API_FAIL', {
+        extra: { url: path, method, network_error: true, message: (err as Error)?.message },
+      })
+      throw err
+    }
     if (response.status === 401) {
       clearAccessToken()
       void Taro.redirectTo({ url: '/pages/auth/login/index' })
@@ -89,6 +98,11 @@ export async function request<T>(
     if (response.status === 403) {
       throw new Error('无权限访问')
     }
+    if (response.status >= 500) {
+      report('warn', 'API_FAIL', {
+        extra: { url: path, method, status: response.status },
+      })
+    }
     const payload = (await response.json()) as ApiEnvelope<T>
     if (!response.ok || payload.code !== 0) {
       throw new Error(payload.message || '请求失败')
@@ -96,12 +110,20 @@ export async function request<T>(
     return payload.data
   }
 
-  const response = await Taro.request<ApiEnvelope<T>>({
-    url,
-    method,
-    data,
-    header: headers,
-  })
+  let response: Taro.request.SuccessCallbackResult<ApiEnvelope<T>>
+  try {
+    response = await Taro.request<ApiEnvelope<T>>({
+      url,
+      method,
+      data,
+      header: headers,
+    })
+  } catch (err) {
+    report('warn', 'API_FAIL', {
+      extra: { url: path, method, network_error: true, message: (err as Error)?.message },
+    })
+    throw err
+  }
 
   if (response.statusCode === 401) {
     clearAccessToken()
@@ -110,6 +132,11 @@ export async function request<T>(
   }
   if (response.statusCode === 403) {
     throw new Error('无权限访问')
+  }
+  if (response.statusCode >= 500) {
+    report('warn', 'API_FAIL', {
+      extra: { url: path, method, status: response.statusCode, code: response.data?.code },
+    })
   }
   if (response.statusCode < 200 || response.statusCode >= 300 || response.data.code !== 0) {
     throw new Error(response.data.message || '请求失败')

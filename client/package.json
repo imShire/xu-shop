@@ -11,6 +11,8 @@
     "build:weapp": "taro build --type weapp",
     "lint": "eslint . --ext .ts,.tsx",
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "gen:api": "openapi-typescript ../server/api/openapi.yaml -o src/types/api.d.ts"
   },
   "browserslist": [
@@ -72,7 +74,11 @@
     "stylelint-config-standard": "^38.0.0",
     "tsconfig-paths-webpack-plugin": "^4.1.0",
     "typescript": "^5.4.5",
-    "webpack": "5.91.0"
+    "webpack": "5.91.0",
+    "@testing-library/jest-dom": "^6.4.6",
+    "@testing-library/react": "^16.0.0",
+    "jsdom": "^24.1.0",
+    "vitest": "^2.0.5"
   },
   "packageManager": "pnpm@10.22.0"
 }

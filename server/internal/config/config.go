@@ -24,6 +24,16 @@ type Config struct {
 	QYWx   QYWxConfig
 	Log    LogConfig
 	Auth   AuthConfig
+	Tracer TracerConfig
+}
+
+// TracerConfig OpenTelemetry tracer 配置。
+type TracerConfig struct {
+	Enabled     bool
+	Endpoint    string  // OTLP gRPC endpoint，如 "otel-collector:4317"
+	ServiceName string  // 默认 xu-shop-api（worker 自行覆盖为 xu-shop-worker）
+	Environment string  // dev/staging/prod
+	SampleRatio float64 // 默认 0.1
 }
 
 type AuthConfig struct {
@@ -110,6 +120,10 @@ func Load() (*Config, error) {
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 
 	// 设置默认值
+	v.SetDefault("TRACER_ENABLED", false)
+	v.SetDefault("TRACER_SERVICE_NAME", "xu-shop-api")
+	v.SetDefault("TRACER_ENVIRONMENT", "dev")
+	v.SetDefault("TRACER_SAMPLE_RATIO", 0.1)
 	v.SetDefault("APP_ENV", "dev")
 	v.SetDefault("APP_PORT", "8080")
 	v.SetDefault("INSTANCE_ID", 1)
@@ -176,6 +190,12 @@ func Load() (*Config, error) {
 	cfg.QYWx.Secret = v.GetString("QYWX_SECRET")
 
 	cfg.Log.Level = v.GetString("LOG_LEVEL")
+
+	cfg.Tracer.Enabled = v.GetBool("TRACER_ENABLED")
+	cfg.Tracer.Endpoint = v.GetString("TRACER_ENDPOINT")
+	cfg.Tracer.ServiceName = v.GetString("TRACER_SERVICE_NAME")
+	cfg.Tracer.Environment = v.GetString("TRACER_ENVIRONMENT")
+	cfg.Tracer.SampleRatio = v.GetFloat64("TRACER_SAMPLE_RATIO")
 
 	// AUTH_H5_REDIRECT_ALLOWLIST: 逗号分隔的完整 URL 列表，可为空
 	if raw := v.GetString("AUTH_H5_REDIRECT_ALLOWLIST"); raw != "" {

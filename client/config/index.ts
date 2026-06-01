@@ -3,8 +3,11 @@ import { defineConfig, type UserConfigExport } from '@tarojs/cli'
 import TsconfigPathsPlugin from 'tsconfig-paths-webpack-plugin'
 import devConfig from './dev'
 import prodConfig from './prod'
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const pkg = require('../package.json') as { version?: string }
 
 const srcPath = path.resolve(__dirname, '..', 'src')
+const appVersion = `${pkg.version ?? '0.0.0'}+${Date.now()}`
 
 export default defineConfig<'webpack5'>(async (merge) => {
   const baseConfig: UserConfigExport<'webpack5'> = {
@@ -25,6 +28,7 @@ export default defineConfig<'webpack5'>(async (merge) => {
     plugins: ['@tarojs/plugin-html'],
     defineConstants: {
       'process.env.TARO_APP_API_BASE': JSON.stringify(process.env.TARO_APP_API_BASE ?? ''),
+      'process.env.TARO_APP_VERSION': JSON.stringify(appVersion),
     },
     copy: {
       patterns: [],

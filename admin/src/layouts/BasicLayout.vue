@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useAppStore } from '@/stores/app'
 import { useAuthStore } from '@/stores/auth'
 import Sidebar from './components/Sidebar.vue'
+import ErrorBoundary from '@/components/ErrorBoundary.vue'
 import {
   Fold,
   Expand,
@@ -123,11 +124,13 @@ async function handleLogout() {
 
       <!-- 内容区 -->
       <div class="content-wrapper">
-        <router-view v-slot="{ Component }">
-          <transition name="slide-fade" mode="out-in">
-            <component :is="Component" />
-          </transition>
-        </router-view>
+        <ErrorBoundary name="basic-layout">
+          <router-view v-slot="{ Component }">
+            <transition name="slide-fade" mode="out-in">
+              <component :is="Component" />
+            </transition>
+          </router-view>
+        </ErrorBoundary>
       </div>
     </div>
   </div>

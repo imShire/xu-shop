@@ -120,7 +120,9 @@ type ReconciliationDiff struct {
 	CreatedAt      time.Time  `json:"created_at"`
 }
 
-func (ReconciliationDiff) TableName() string { return "reconciliation_diff" }
+// TableName 指向迁移后的旧表 legacy_reconciliation_diff；
+// A8 起新生通用 reconciliation_diff 表由 modules/reconciliation 接管。
+func (ReconciliationDiff) TableName() string { return "legacy_reconciliation_diff" }
 
 // AuditLog 操作审计日志。
 type AuditLog struct {

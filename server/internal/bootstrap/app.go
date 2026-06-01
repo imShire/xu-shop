@@ -5,7 +5,9 @@ import (
 	"fmt"
 
 	"github.com/hibiken/asynq"
+	"github.com/redis/go-redis/extra/redisotel/v9"
 	"github.com/redis/go-redis/v9"
+	"github.com/uptrace/opentelemetry-go-extra/otelgorm"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -50,12 +52,21 @@ func NewApp(cfg *config.Config) (*App, error) {
 	sqlDB.SetMaxOpenConns(25)
 	sqlDB.SetMaxIdleConns(5)
 
+	// GORM OTel 插件（noop tracer 下零开销）
+	if err := db.Use(otelgorm.NewPlugin()); err != nil {
+		return nil, fmt.Errorf("bootstrap: install otelgorm plugin: %w", err)
+	}
+
 	// 初始化 Redis
 	rdb := redis.NewClient(&redis.Options{
 		Addr:     cfg.Redis.Addr,
 		Password: cfg.Redis.Password,
 		DB:       cfg.Redis.DB,
 	})
+	// Redis OTel tracing（noop tracer 下零开销）
+	if err := redisotel.InstrumentTracing(rdb); err != nil {
+		return nil, fmt.Errorf("bootstrap: install redisotel tracing: %w", err)
+	}
 
 	// 初始化 asynq client
 	asynqClient := asynq.NewClient(asynq.RedisClientOpt{

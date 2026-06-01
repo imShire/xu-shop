@@ -1,0 +1,23 @@
+import request from '@/utils/request';
+export const listCouponTemplates = (params) => request.get('/admin/coupon-templates', { params });
+export const getCouponTemplate = (id) => request.get(`/admin/coupon-templates/${id}`);
+export const createCouponTemplate = (data) => request.post('/admin/coupon-templates', data);
+export const updateCouponTemplate = (id, data) => request.put(`/admin/coupon-templates/${id}`, data);
+export const onlineCouponTemplate = (id) => request.post(`/admin/coupon-templates/${id}/online`);
+export const offlineCouponTemplate = (id) => request.post(`/admin/coupon-templates/${id}/offline`);
+export const listCouponGrantTasks = (params) => request.get('/admin/coupon-grant-tasks', { params });
+export const getCouponGrantTask = (id) => request.get(`/admin/coupon-grant-tasks/${id}`);
+export const createCouponGrantTask = (data) => request.post('/admin/coupon-grant-tasks', data);
+export const listCouponRedeemBatches = (params) => request.get('/admin/coupon-redeem-codes/batches', { params });
+export const createCouponRedeemBatch = (data) => request.post('/admin/coupon-redeem-codes/batches', data);
+// ========== 用户券 / 报表 ==========
+export const listUserCoupons = (params) => request.get('/admin/user-coupons', { params });
+export const listPointRules = () => request.get('/admin/point-rules');
+export const updatePointRule = (code, data) => request.put(`/admin/point-rules/${code}`, data);
+export const listPointTransactions = (params) => request.get('/admin/point-transactions', { params });
+export const listPointAdjustTickets = (params) => request.get('/admin/point-adjust-tickets', { params });
+export const createPointAdjustTicket = (data) => request.post('/admin/point-adjust-tickets', data);
+export const approvePointAdjustTicket = (id) => request.post(`/admin/point-adjust-tickets/${id}/approve`);
+export const rejectPointAdjustTicket = (id) => request.post(`/admin/point-adjust-tickets/${id}/reject`);
+export const listMemberLevels = () => request.get('/admin/member-levels');
+export const updateMemberLevel = (code, data) => request.put(`/admin/member-levels/${code}`, data);

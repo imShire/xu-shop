@@ -25,9 +25,11 @@ import (
 	"github.com/xushop/xu-shop/internal/modules/account"
 	"github.com/xushop/xu-shop/internal/modules/address"
 	adminmod "github.com/xushop/xu-shop/internal/modules/admin"
+	"github.com/xushop/xu-shop/internal/modules/admin/audit"
 	"github.com/xushop/xu-shop/internal/modules/aftersale"
 	"github.com/xushop/xu-shop/internal/modules/banner"
 	"github.com/xushop/xu-shop/internal/modules/cart"
+	"github.com/xushop/xu-shop/internal/modules/clog"
 	"github.com/xushop/xu-shop/internal/modules/cms"
 	"github.com/xushop/xu-shop/internal/modules/decorate"
 	"github.com/xushop/xu-shop/internal/modules/distribution"
@@ -40,6 +42,7 @@ import (
 	privatedomain "github.com/xushop/xu-shop/internal/modules/private_domain"
 	"github.com/xushop/xu-shop/internal/modules/product"
 	"github.com/xushop/xu-shop/internal/modules/recall"
+	"github.com/xushop/xu-shop/internal/modules/reconciliation"
 	"github.com/xushop/xu-shop/internal/modules/shipping"
 	"github.com/xushop/xu-shop/internal/modules/stats"
 	"github.com/xushop/xu-shop/internal/modules/tag"
@@ -73,9 +76,19 @@ func main() {
 	}
 	defer app.Close()
 
-	// 2.1 初始化 tracer（OTEL_EXPORTER_OTLP_ENDPOINT 为空则 noop）
+	// 2.1 初始化 tracer（TRACER_ENABLED=false 或 TRACER_ENDPOINT 为空时降级 noop）
 	tracerCtx, tracerCancel := context.WithTimeout(context.Background(), 10*time.Second)
-	_, tracerShutdown, err := tracer.Init(tracerCtx, "xu-shop-api")
+	tracerCfg := tracer.Config{
+		Enabled:     cfg.Tracer.Enabled,
+		Endpoint:    cfg.Tracer.Endpoint,
+		ServiceName: cfg.Tracer.ServiceName,
+		Environment: cfg.Tracer.Environment,
+		SampleRatio: cfg.Tracer.SampleRatio,
+	}
+	if tracerCfg.ServiceName == "" {
+		tracerCfg.ServiceName = "xu-shop-api"
+	}
+	_, tracerShutdown, err := tracer.Init(tracerCtx, tracerCfg)
 	tracerCancel()
 	if err != nil {
 		pkglogger.L().Warn("tracer init failed, fallback to noop", zap.Error(err))
@@ -169,6 +182,9 @@ func main() {
 
 	// 10. 注册业务路由
 	v1 := r.Group("/api/v1")
+	// A2 审计中间件：仅对 /admin/ 下写操作生效；clog 路径不在其范围。
+	auditRepo := audit.NewRepository(app.DB)
+	v1.Use(middleware.AuditLog(auditRepo))
 	{
 		// account 模块
 		accountUserRepo := account.NewUserRepo(app.DB)
@@ -358,6 +374,17 @@ func main() {
 		decorateSvc := decorate.NewService(decorateRepo)
 		decorateHandler := decorate.NewHandler(decorateSvc)
 		decorate.RegisterRoutes(v1, decorateHandler, app.Redis, app.DB, jwtCfg)
+
+		// D1 clog 模块（前端日志上报）
+		clogRepo := clog.NewRepository(app.DB)
+		clogSvc := clog.NewService(clogRepo)
+		clogHandler := clog.NewHandler(clogSvc)
+		clog.RegisterRoutes(v1, clogHandler, app.Redis, app.DB, jwtCfg)
+
+		// A8 reconciliation 模块（日终对账差异查询/处置）
+		recSvc := reconciliation.NewService(reconciliation.NewRepository(app.DB))
+		recHandler := reconciliation.NewHandler(recSvc)
+		reconciliation.RegisterRoutes(v1, recHandler, app.Redis, app.DB, jwtCfg)
 	}
 
 	// 11. 启动 HTTP 服务

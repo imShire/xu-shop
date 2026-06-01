@@ -7,6 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 
 	pkglogger "github.com/xushop/xu-shop/internal/pkg/logger"
@@ -39,8 +40,14 @@ func Logging() gin.HandlerFunc {
 		c.Set("request_id", requestID)
 		c.Header("X-Request-Id", requestID)
 
-		// 将带 request_id 的 logger 注入 context
+		// 将带 request_id（如 span 有效则加 trace_id/span_id）的 logger 注入 context
 		l := pkglogger.L().With(zap.String("request_id", requestID))
+		if sc := trace.SpanContextFromContext(c.Request.Context()); sc.IsValid() {
+			l = l.With(
+				zap.String("trace_id", sc.TraceID().String()),
+				zap.String("span_id", sc.SpanID().String()),
+			)
+		}
 		c.Request = c.Request.WithContext(pkglogger.WithContext(c.Request.Context(), l))
 
 		// 读取请求体（有 Content-Length 且不超限时才记录）

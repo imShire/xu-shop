@@ -152,6 +152,7 @@ func allRoles() []struct {
 				"system.audit.view",
 				"system.setting.view", "system.setting.edit",
 				"system.upload.view", "system.upload.edit",
+				"system.reconciliation.view", "system.reconciliation.handle",
 			),
 		},
 		{
@@ -465,6 +466,8 @@ func allPermissions() []account.Permission {
 		{"system.setting.edit", "system", "setting.edit", "编辑系统设置"},
 		{"system.upload.view", "system", "upload.view", "查看上传设置"},
 		{"system.upload.edit", "system", "upload.edit", "编辑上传设置"},
+		{"system.reconciliation.view", "system", "reconciliation.view", "查看对账差异"},
+		{"system.reconciliation.handle", "system", "reconciliation.handle", "处理对账差异"},
 	}
 
 	perms := make([]account.Permission, len(defs))

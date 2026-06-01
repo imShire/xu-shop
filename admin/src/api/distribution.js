@@ -1,0 +1,15 @@
+import request from '@/utils/request';
+export const listDistributors = (params) => request.get('/admin/distributors', { params });
+export const approveDistributor = (id) => request.post(`/admin/distributors/${id}/approve`);
+export const rejectDistributor = (id, reason) => request.post(`/admin/distributors/${id}/reject`, { reason });
+export const disableDistributor = (id) => request.post(`/admin/distributors/${id}/disable`);
+export const setDistributorRate = (id, rate_override) => request.put(`/admin/distributors/${id}/rate`, { rate_override });
+export const listCommissions = (params) => request.get('/admin/commissions', { params });
+export const releaseCommission = (id) => request.post(`/admin/commissions/${id}/release`);
+export const cancelCommission = (id, reason) => request.post(`/admin/commissions/${id}/cancel`, { reason });
+export const listWithdraws = (params) => request.get('/admin/withdraws', { params });
+export const retryWithdraw = (id) => request.post(`/admin/withdraws/${id}/retry`);
+export const listShareLinks = (params) => request.get('/admin/share-links', { params });
+export const getDistributionDashboard = (params) => request.get('/admin/distribution/dashboard', { params });
+export const getDistributionSettings = () => request.get('/admin/settings/distribution');
+export const updateDistributionSettings = (data) => request.put('/admin/settings/distribution', data);

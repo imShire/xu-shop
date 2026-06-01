@@ -4835,3 +4835,162 @@ paths:
         "200":
           description: 已撤销
           content: { application/json: { schema: { $ref: '#/components/schemas/BaseResp' } } }
+
+  # ============================================================
+  # D1 前端日志上报（任意来源；optional auth；IP 限流 60/min）
+  # ============================================================
+  /internal/clog:
+    post:
+      tags: [内部接口]
+      summary: 前端日志上报（单条）
+      description: |
+        admin / H5 / 小程序前端把 JS 错误、未捕获 promise、API 失败等上报到此。
+        - 不强制登录；若携带 user 或 admin token，会从 token 解析 user_id / admin_id 并入库
+        - 客户端在 body 里传 user_id / admin_id 无效，服务端只信任 token
+        - 单 IP 限流 60 条/分钟
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [source, level, message]
+              properties:
+                source:    { type: string, enum: [admin, client_h5, client_weapp] }
+                level:     { type: string, enum: [error, warn, info] }
+                message:   { type: string, maxLength: 4096 }
+                stack:     { type: string, maxLength: 16384 }
+                url:       { type: string, maxLength: 512 }
+                user_agent:{ type: string, maxLength: 255 }
+                release:   { type: string, maxLength: 64 }
+                extra:     { type: object, additionalProperties: true }
+      responses:
+        "200":
+          description: 已接收
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BaseResp'
+
+  /internal/clog/batch:
+    post:
+      tags: [内部接口]
+      summary: 前端日志上报（批量，最多 50 条）
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [logs]
+              properties:
+                logs:
+                  type: array
+                  minItems: 1
+                  maxItems: 50
+                  items:
+                    type: object
+                    required: [source, level, message]
+                    properties:
+                      source:    { type: string, enum: [admin, client_h5, client_weapp] }
+                      level:     { type: string, enum: [error, warn, info] }
+                      message:   { type: string, maxLength: 4096 }
+                      stack:     { type: string, maxLength: 16384 }
+                      url:       { type: string, maxLength: 512 }
+                      user_agent:{ type: string, maxLength: 255 }
+                      release:   { type: string, maxLength: 64 }
+                      extra:     { type: object, additionalProperties: true }
+      responses:
+        "200":
+          description: 已接收
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BaseResp'
+
+  # ============================================================
+  # A8 对账差异（与已有 /admin/reconciliation 旧表查询并存；本组针对 v2 差异表）
+  # ============================================================
+  /admin/reconciliation/diff:
+    get:
+      tags: [Admin对账]
+      summary: 差异列表（v2 reconciliation_diff 表）
+      description: 支付 / 库存 / 佣金日终对账差异，需权限点 system.reconciliation.view
+      security:
+        - BearerAuth: []
+      parameters:
+        - { name: job,      in: query, required: false, schema: { type: string, enum: [payment, inventory, commission] } }
+        - { name: biz_date, in: query, required: false, schema: { type: string, format: date, description: "YYYY-MM-DD，Asia/Shanghai 自然日" } }
+        - { name: status,   in: query, required: false, schema: { type: string, enum: [open, acknowledged, resolved] } }
+        - { name: severity, in: query, required: false, schema: { type: string, enum: [info, warn, critical] } }
+        - { name: page,     in: query, required: false, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: size,     in: query, required: false, schema: { type: integer, minimum: 1, maximum: 200, default: 20 } }
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/BaseResp'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          total: { type: integer }
+                          list:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                id:             { type: string }
+                                job:            { type: string }
+                                biz_date:       { type: string, format: date }
+                                ref_type:       { type: string }
+                                ref_id:         { type: string }
+                                field:          { type: string }
+                                expected_value: { type: string }
+                                actual_value:   { type: string }
+                                diff_cents:     { type: integer, format: int64 }
+                                severity:       { type: string, enum: [info, warn, critical] }
+                                status:         { type: string, enum: [open, acknowledged, resolved] }
+                                note:           { type: string }
+                                created_at:     { type: string, format: date-time }
+                                resolved_at:    { type: string, format: date-time, nullable: true }
+
+  /admin/reconciliation/diff/{id}/ack:
+    post:
+      tags: [Admin对账]
+      summary: 标记差异为已确认（acknowledged）
+      security:
+        - BearerAuth: []
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: ok
+          content: { application/json: { schema: { $ref: '#/components/schemas/BaseResp' } } }
+
+  /admin/reconciliation/diff/{id}/resolve:
+    post:
+      tags: [Admin对账]
+      summary: 标记差异为已解决（resolved）
+      security:
+        - BearerAuth: []
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                note: { type: string, maxLength: 1000 }
+      responses:
+        "200":
+          description: ok
+          content: { application/json: { schema: { $ref: '#/components/schemas/BaseResp' } } }

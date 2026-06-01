@@ -2,6 +2,7 @@ import { Component, ErrorInfo, ReactNode } from 'react'
 import { View, Text } from '@tarojs/components'
 import Taro from '@tarojs/taro'
 import { Button } from '@/ui/nutui'
+import { report } from '@/utils/clog'
 
 interface Props {
   children: ReactNode
@@ -19,8 +20,18 @@ export default class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
-    // Sentry hook 占位
     console.error('[ErrorBoundary]', error, info.componentStack)
+    try {
+      report('error', `react_render: ${error?.message ?? String(error)}`, {
+        stack: [error?.stack, info?.componentStack].filter(Boolean).join('\n\n'),
+      })
+    } catch {
+      // 静默
+    }
+  }
+
+  handleRetry = () => {
+    this.setState({ hasError: false })
   }
 
   handleBackHome = () => {
@@ -57,6 +68,8 @@ export default class ErrorBoundary extends Component<Props, State> {
         <Button type='primary' onClick={this.handleBackHome}>
           返回首页
         </Button>
+        <View style={{ height: '12px' }} />
+        <Button onClick={this.handleRetry}>重试</Button>
       </View>
     )
   }

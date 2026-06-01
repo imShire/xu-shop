@@ -16,6 +16,7 @@ import (
 	"github.com/xushop/xu-shop/internal/bootstrap"
 	"github.com/xushop/xu-shop/internal/config"
 	"github.com/xushop/xu-shop/internal/jobs"
+	recjobs "github.com/xushop/xu-shop/internal/jobs/reconciliation"
 	"github.com/xushop/xu-shop/internal/modules/account"
 	"github.com/xushop/xu-shop/internal/modules/address"
 	"github.com/xushop/xu-shop/internal/modules/distribution"
@@ -26,6 +27,7 @@ import (
 	"github.com/xushop/xu-shop/internal/modules/payment"
 	"github.com/xushop/xu-shop/internal/modules/product"
 	"github.com/xushop/xu-shop/internal/modules/recall"
+	recmod "github.com/xushop/xu-shop/internal/modules/reconciliation"
 	"github.com/xushop/xu-shop/internal/modules/shipping"
 	"github.com/xushop/xu-shop/internal/modules/stats"
 	"github.com/xushop/xu-shop/internal/modules/tag"
@@ -50,9 +52,16 @@ func main() {
 	}
 	defer app.Close()
 
-	// 初始化 tracer（OTEL_EXPORTER_OTLP_ENDPOINT 为空则 noop）
+	// 初始化 tracer（TRACER_ENABLED=false 或 TRACER_ENDPOINT 为空时降级 noop）
 	tracerCtx, tracerCancel := context.WithTimeout(context.Background(), 10*time.Second)
-	_, tracerShutdown, err := tracer.Init(tracerCtx, "xu-shop-worker")
+	tracerCfg := tracer.Config{
+		Enabled:     cfg.Tracer.Enabled,
+		Endpoint:    cfg.Tracer.Endpoint,
+		ServiceName: "xu-shop-worker",
+		Environment: cfg.Tracer.Environment,
+		SampleRatio: cfg.Tracer.SampleRatio,
+	}
+	_, tracerShutdown, err := tracer.Init(tracerCtx, tracerCfg)
 	tracerCancel()
 	if err != nil {
 		pkglogger.L().Warn("tracer init failed, fallback to noop", zap.Error(err))
@@ -170,6 +179,7 @@ func main() {
 
 	// ---- 注册 asynq mux ----
 	mux := asynq.NewServeMux()
+	mux.Use(tracer.AsynqMiddleware)
 	mux.Handle(jobs.TaskOrderClose, jobs.NewOrderCloseHandler(closeAdapter))
 
 	// tag / recall handlers（B5）
@@ -192,6 +202,18 @@ func main() {
 	mux.Handle(jobs.TaskWithdrawActiveQuery, jobs.NewWithdrawActiveQueryHandler(distSvc))
 	mux.Handle(jobs.TaskWithdrawReconcile, jobs.NewWithdrawReconcileHandler(distSvc))
 	mux.Handle(jobs.TaskShareClickFlush, jobs.NewShareClickFlushHandler(distSvc))
+
+	// A8 日终对账 3 个 cron handler（支付 / 库存 / 佣金）
+	recSvc := recmod.NewService(recmod.NewRepository(app.DB))
+	mux.Handle(recjobs.TaskPayment, recjobs.NewPaymentHandler(recjobs.PaymentDeps{
+		DB: app.DB, Wxpay: wxpayClient, Svc: recSvc,
+	}))
+	mux.Handle(recjobs.TaskInventory, recjobs.NewInventoryHandler(recjobs.InventoryDeps{
+		DB: app.DB, Svc: recSvc,
+	}))
+	mux.Handle(recjobs.TaskCommission, recjobs.NewCommissionHandler(recjobs.CommissionDeps{
+		DB: app.DB, Svc: recSvc,
+	}))
 
 	// ---- asynq Scheduler：定时投递 periodic 任务 ----
 	scheduler := asynq.NewScheduler(
@@ -238,6 +260,25 @@ func main() {
 		if _, err := scheduler.Register(sch.spec, asynq.NewTask(sch.name, nil)); err != nil {
 			pkglogger.L().Fatal("scheduler register failed",
 				zap.String("task", sch.name), zap.Error(err))
+		}
+	}
+
+	// A8 日终对账 cron（默认级联错峰错开，可由 env 覆盖）
+	recSchedules := []struct {
+		envKey, defaultSpec, taskName string
+	}{
+		{"RECONCILE_PAYMENT_CRON", recjobs.DefaultPaymentCron, recjobs.TaskPayment},
+		{"RECONCILE_INVENTORY_CRON", recjobs.DefaultInventoryCron, recjobs.TaskInventory},
+		{"RECONCILE_COMMISSION_CRON", recjobs.DefaultCommissionCron, recjobs.TaskCommission},
+	}
+	for _, sch := range recSchedules {
+		spec := os.Getenv(sch.envKey)
+		if spec == "" {
+			spec = sch.defaultSpec
+		}
+		if _, err := scheduler.Register(spec, asynq.NewTask(sch.taskName, nil)); err != nil {
+			pkglogger.L().Fatal("scheduler register reconciliation failed",
+				zap.String("task", sch.taskName), zap.Error(err))
 		}
 	}
 

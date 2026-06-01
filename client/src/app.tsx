@@ -7,6 +7,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useCartStore } from '@/stores/cart'
 import { ConfigProvider } from '@/ui/nutui'
 import { isH5 } from '@/utils/platform'
+import { configureUserIdGetter, getReporter, installClogLifecycle, report } from '@/utils/clog'
 import { extractTokenFromLaunch, persistTraceId } from '@/utils/trace'
 import { trackShareClick } from '@/services/share'
 import '@nutui/nutui-react-taro/dist/style.css'
@@ -95,6 +96,77 @@ function App({ children }: PropsWithChildren) {
   const refreshCount = useCartStore((state) => state.refreshCount)
   const [currentRoute, setCurrentRoute] = useState('pages/home/index')
   const [stackLength, setStackLength] = useState(1)
+
+  useEffect(() => {
+    // 把 user_id 注入 clog
+    configureUserIdGetter(() => useAuthStore.getState().user?.id ?? undefined)
+    installClogLifecycle()
+
+    if (isH5 && typeof window !== 'undefined') {
+      const onErr = (
+        _msg: Event | string,
+        source?: string,
+        lineno?: number,
+        colno?: number,
+        error?: Error
+      ) => {
+        try {
+          const msg = error?.message ?? (typeof _msg === 'string' ? _msg : 'window.onerror')
+          report('error', msg, {
+            stack: error?.stack,
+            extra: { source, lineno, colno },
+          })
+        } catch {
+          /* noop */
+        }
+      }
+      const onRej = (ev: PromiseRejectionEvent) => {
+        try {
+          const reason = ev?.reason
+          const msg = reason instanceof Error ? reason.message : String(reason ?? 'unhandledrejection')
+          report('error', `unhandledrejection: ${msg}`, {
+            stack: reason instanceof Error ? reason.stack : undefined,
+          })
+        } catch {
+          /* noop */
+        }
+      }
+      window.addEventListener('error', onErr as unknown as EventListener)
+      window.addEventListener('unhandledrejection', onRej)
+      return () => {
+        window.removeEventListener('error', onErr as unknown as EventListener)
+        window.removeEventListener('unhandledrejection', onRej)
+      }
+    }
+
+    // weapp 全局错误
+    try {
+      Taro.onError?.((err) => {
+        const msg = typeof err === 'string' ? err : (err as Error)?.message ?? String(err)
+        const stack = typeof err === 'string' ? err : (err as Error)?.stack
+        report('error', `weapp_onerror: ${String(msg).slice(0, 200)}`, { stack })
+      })
+      Taro.onUnhandledRejection?.((res: { reason?: unknown }) => {
+        const reason = res?.reason
+        const msg = reason instanceof Error ? reason.message : String(reason ?? 'unhandledrejection')
+        report('error', `weapp_unhandledrejection: ${msg}`, {
+          stack: reason instanceof Error ? reason.stack : undefined,
+        })
+      })
+    } catch {
+      /* noop */
+    }
+    return undefined
+  }, [])
+
+  // weapp 应用切后台时刷一次队列
+  Taro.useDidHide?.(() => {
+    try {
+      void getReporter().flush()
+    } catch {
+      /* noop */
+    }
+  })
 
   function syncRouteState() {
     if (isH5 && typeof window !== 'undefined') {

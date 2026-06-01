@@ -4,6 +4,7 @@ package logger
 import (
 	"context"
 
+	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -43,10 +44,24 @@ func WithContext(ctx context.Context, l *zap.Logger) context.Context {
 	return context.WithValue(ctx, loggerKey, l)
 }
 
-// Ctx 从 context 取 logger，并注入 request_id / trace_id 字段。
+// Ctx 从 context 取 logger（已带 request_id 等基础字段），自动追加 trace_id/span_id。
 func Ctx(ctx context.Context) *zap.Logger {
+	var base *zap.Logger
 	if l, ok := ctx.Value(loggerKey).(*zap.Logger); ok && l != nil {
-		return l
+		base = l
+	} else {
+		base = L()
 	}
-	return L()
+	if sc := trace.SpanContextFromContext(ctx); sc.IsValid() {
+		return base.With(
+			zap.String("trace_id", sc.TraceID().String()),
+			zap.String("span_id", sc.SpanID().String()),
+		)
+	}
+	return base
+}
+
+// WithCtx 是 Ctx 的别名，供业务代码以 logger.WithCtx(ctx).Info(...) 风格调用。
+func WithCtx(ctx context.Context) *zap.Logger {
+	return Ctx(ctx)
 }

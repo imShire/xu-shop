@@ -1,6 +1,7 @@
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
+import { report } from '@/utils/clog'
 
 const request = axios.create({
   baseURL: '/api/v1',
@@ -40,6 +41,23 @@ request.interceptors.response.use(
     return Promise.reject(new Error(message))
   },
   (error) => {
+    const status: number | undefined = error.response?.status
+    const reqUrl: string | undefined = error.config?.url
+    // 仅 5xx 与网络错误（无 response）上报，4xx 业务错不上报
+    if (!error.response || (typeof status === 'number' && status >= 500)) {
+      try {
+        report('warn', 'API_FAIL', {
+          extra: {
+            url: reqUrl,
+            status: status ?? 0,
+            code: error.response?.data?.code,
+            message: error.response?.data?.message ?? error.message,
+          },
+        })
+      } catch {
+        // 静默
+      }
+    }
     ElMessage.error(error.response?.data?.message || '网络错误')
     return Promise.reject(error)
   }

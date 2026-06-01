@@ -185,6 +185,33 @@ func MarkSensitive() gin.HandlerFunc {
 	}
 }
 
+// AdminOptionalAuth 可选管理员认证：token 有效则注入 admin_id，无 token 或无效时放行。
+// 不做权限点校验（用于审计补充元信息的端点，如 /internal/clog）。
+func AdminOptionalAuth(rdb *redis.Client, db *gorm.DB, jwtCfg pkgjwt.Config) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		token := extractBearerToken(c)
+		if token == "" {
+			c.Next()
+			return
+		}
+		claims, err := pkgjwt.Parse(jwtCfg, token)
+		if err != nil || claims.Typ != "admin" {
+			c.Next()
+			return
+		}
+		blacklisted, _ := isBlacklisted(c.Request.Context(), rdb, claims.JTI)
+		if blacklisted {
+			c.Next()
+			return
+		}
+		status, statusErr := getAdminStatus(c.Request.Context(), rdb, db, claims.Sub)
+		if statusErr == nil && status == "active" {
+			c.Set(ctxKeyAdminID, claims.Sub)
+		}
+		c.Next()
+	}
+}
+
 // Fail 调用 server 包的 Fail，但 auth 中间件直接写响应。
 func Fail(c *gin.Context, err *errs.AppError) {
 	c.AbortWithStatusJSON(err.HTTPStatus, gin.H{
