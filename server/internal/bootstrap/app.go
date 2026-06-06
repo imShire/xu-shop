@@ -3,6 +3,7 @@ package bootstrap
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/hibiken/asynq"
 	"github.com/redis/go-redis/extra/redisotel/v9"
@@ -49,8 +50,9 @@ func NewApp(cfg *config.Config) (*App, error) {
 	if err != nil {
 		return nil, fmt.Errorf("bootstrap: get sql.DB: %w", err)
 	}
-	sqlDB.SetMaxOpenConns(25)
-	sqlDB.SetMaxIdleConns(5)
+	sqlDB.SetMaxOpenConns(50)
+	sqlDB.SetMaxIdleConns(10)
+	sqlDB.SetConnMaxLifetime(30 * time.Minute)
 
 	// GORM OTel 插件（noop tracer 下零开销）
 	if err := db.Use(otelgorm.NewPlugin()); err != nil {

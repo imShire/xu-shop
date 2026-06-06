@@ -91,7 +91,9 @@ export async function request<T>(
       throw err
     }
     if (response.status === 401) {
-      clearAccessToken()
+      // H5: token lives in HttpOnly cookie; JS cannot clear it via storage.
+      // Fire-and-forget a logout request so the server clears the cookie.
+      fetch(`${BASE_URL}/auth/logout`, { method: 'POST', credentials: 'include', body: null }).catch(() => {})
       void Taro.redirectTo({ url: '/pages/auth/login/index' })
       throw new Error('登录已过期，请重新登录')
     }

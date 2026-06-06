@@ -121,6 +121,7 @@ func main() {
 	r.Use(middleware.Logging())
 	r.Use(middleware.PrometheusMiddleware())
 	r.Use(middleware.CORS([]string{"http://localhost:3000", "http://localhost:5273"}))
+	r.Use(middleware.RequestTimeout(10 * time.Second))
 
 	// 5. 健康检查 & metrics & 文档
 	r.GET("/healthz", func(c *gin.Context) {
