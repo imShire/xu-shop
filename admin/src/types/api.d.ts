@@ -8260,6 +8260,274 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/internal/clog": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 前端日志上报（单条）
+         * @description admin / H5 / 小程序前端把 JS 错误、未捕获 promise、API 失败等上报到此。
+         *     - 不强制登录；若携带 user 或 admin token，会从 token 解析 user_id / admin_id 并入库
+         *     - 客户端在 body 里传 user_id / admin_id 无效，服务端只信任 token
+         *     - 单 IP 限流 60 条/分钟
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        source: "admin" | "client_h5" | "client_weapp";
+                        /** @enum {string} */
+                        level: "error" | "warn" | "info";
+                        message: string;
+                        stack?: string;
+                        url?: string;
+                        user_agent?: string;
+                        release?: string;
+                        extra?: {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+            responses: {
+                /** @description 已接收 */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BaseResp"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/internal/clog/batch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 前端日志上报（批量，最多 50 条） */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        logs: {
+                            /** @enum {string} */
+                            source: "admin" | "client_h5" | "client_weapp";
+                            /** @enum {string} */
+                            level: "error" | "warn" | "info";
+                            message: string;
+                            stack?: string;
+                            url?: string;
+                            user_agent?: string;
+                            release?: string;
+                            extra?: {
+                                [key: string]: unknown;
+                            };
+                        }[];
+                    };
+                };
+            };
+            responses: {
+                /** @description 已接收 */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BaseResp"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/reconciliation/diff": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 差异列表（v2 reconciliation_diff 表）
+         * @description 支付 / 库存 / 佣金日终对账差异，需权限点 system.reconciliation.view
+         */
+        get: {
+            parameters: {
+                query?: {
+                    job?: "payment" | "inventory" | "commission";
+                    biz_date?: string;
+                    status?: "open" | "acknowledged" | "resolved";
+                    severity?: "info" | "warn" | "critical";
+                    page?: number;
+                    size?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description ok */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BaseResp"] & {
+                            data?: {
+                                total?: number;
+                                list?: {
+                                    id?: string;
+                                    job?: string;
+                                    /** Format: date */
+                                    biz_date?: string;
+                                    ref_type?: string;
+                                    ref_id?: string;
+                                    field?: string;
+                                    expected_value?: string;
+                                    actual_value?: string;
+                                    /** Format: int64 */
+                                    diff_cents?: number;
+                                    /** @enum {string} */
+                                    severity?: "info" | "warn" | "critical";
+                                    /** @enum {string} */
+                                    status?: "open" | "acknowledged" | "resolved";
+                                    note?: string;
+                                    /** Format: date-time */
+                                    created_at?: string;
+                                    /** Format: date-time */
+                                    resolved_at?: string | null;
+                                }[];
+                            };
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/reconciliation/diff/{id}/ack": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 标记差异为已确认（acknowledged） */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description ok */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BaseResp"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/reconciliation/diff/{id}/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 标记差异为已解决（resolved） */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        note?: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description ok */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BaseResp"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {

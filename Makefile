@@ -1,4 +1,4 @@
-.PHONY: help deps-up deps-down server-run admin-run client-h5 client-mp migrate-up
+.PHONY: help deps-up deps-down server-run admin-run client-h5 client-mp migrate-up api-check
 
 help:
 	@echo "deps-up      - 启动本地依赖 (postgres/redis/minio/asynqmon)"
@@ -8,6 +8,7 @@ help:
 	@echo "client-h5    - 进入 client 并 pnpm dev:h5"
 	@echo "client-mp    - 进入 client 并 pnpm dev:weapp"
 	@echo "migrate-up   - 运行数据库迁移"
+	@echo "api-check    - 检查 admin 生成类型与 openapi.yaml 是否同步"
 
 deps-up:
 	docker compose -f server/deploy/docker-compose.dev.yml up -d
@@ -29,3 +30,8 @@ client-mp:
 
 migrate-up:
 	$(MAKE) -C server migrate-up
+
+.PHONY: api-check
+api-check:
+	cd admin && pnpm gen:api:check
+	@echo "✓ admin openapi types are in sync"

@@ -4862,7 +4862,7 @@ paths:
                 message:   { type: string, maxLength: 4096 }
                 stack:     { type: string, maxLength: 16384 }
                 url:       { type: string, maxLength: 512 }
-                user_agent:{ type: string, maxLength: 255 }
+                user_agent: { type: string, maxLength: 255 }
                 release:   { type: string, maxLength: 64 }
                 extra:     { type: object, additionalProperties: true }
       responses:
@@ -4899,7 +4899,7 @@ paths:
                       message:   { type: string, maxLength: 4096 }
                       stack:     { type: string, maxLength: 16384 }
                       url:       { type: string, maxLength: 512 }
-                      user_agent:{ type: string, maxLength: 255 }
+                      user_agent: { type: string, maxLength: 255 }
                       release:   { type: string, maxLength: 64 }
                       extra:     { type: object, additionalProperties: true }
       responses:
