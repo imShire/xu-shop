@@ -81,9 +81,9 @@ func (h *Handler) AdminDeleteTag(c *gin.Context) {
 	xserver.OK(c, gin.H{"ok": true})
 }
 
-// AdminGetUserTags GET /admin/users/:user_id/tags
+// AdminGetUserTags GET /admin/users/:id/tags
 func (h *Handler) AdminGetUserTags(c *gin.Context) {
-	uid, err := strconv.ParseInt(c.Param("user_id"), 10, 64)
+	uid, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil || uid <= 0 {
 		xserver.Fail(c, errs.ErrParam)
 		return
@@ -96,9 +96,9 @@ func (h *Handler) AdminGetUserTags(c *gin.Context) {
 	xserver.OK(c, gin.H{"items": list})
 }
 
-// AdminAddUserTag POST /admin/users/:user_id/tags
+// AdminAddUserTag POST /admin/users/:id/tags
 func (h *Handler) AdminAddUserTag(c *gin.Context) {
-	uid, err := strconv.ParseInt(c.Param("user_id"), 10, 64)
+	uid, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil || uid <= 0 {
 		xserver.Fail(c, errs.ErrParam)
 		return
@@ -119,9 +119,9 @@ func (h *Handler) AdminAddUserTag(c *gin.Context) {
 	xserver.OK(c, gin.H{"ok": true})
 }
 
-// AdminRemoveUserTag DELETE /admin/users/:user_id/tags/:tag_code
+// AdminRemoveUserTag DELETE /admin/users/:id/tags/:tag_code
 func (h *Handler) AdminRemoveUserTag(c *gin.Context) {
-	uid, err := strconv.ParseInt(c.Param("user_id"), 10, 64)
+	uid, err := strconv.ParseInt(c.Param("id"), 10, 64)
 	if err != nil || uid <= 0 {
 		xserver.Fail(c, errs.ErrParam)
 		return

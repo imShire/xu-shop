@@ -20,9 +20,9 @@ func RegisterRoutes(r *gin.RouterGroup, h *Handler, rdb *redis.Client, db *gorm.
 	r.PUT("/admin/user-tags/:code", adminAuth("tag.dict.edit"), h.AdminUpdateTag)
 	r.DELETE("/admin/user-tags/:code", adminAuth("tag.dict.edit"), h.AdminDeleteTag)
 
-	r.GET("/admin/users/:user_id/tags", adminAuth("user.view"), h.AdminGetUserTags)
-	r.POST("/admin/users/:user_id/tags", adminAuth("tag.user.edit"), h.AdminAddUserTag)
-	r.DELETE("/admin/users/:user_id/tags/:tag_code", adminAuth("tag.user.edit"), h.AdminRemoveUserTag)
+	r.GET("/admin/users/:id/tags", adminAuth("user.view"), h.AdminGetUserTags)
+	r.POST("/admin/users/:id/tags", adminAuth("tag.user.edit"), h.AdminAddUserTag)
+	r.DELETE("/admin/users/:id/tags/:tag_code", adminAuth("tag.user.edit"), h.AdminRemoveUserTag)
 
 	r.POST("/admin/audience/preview", adminAuth("tag.audience.view"), h.AdminPreviewAudience)
 }

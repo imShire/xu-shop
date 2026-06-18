@@ -45,9 +45,9 @@ func RegisterRoutes(r *gin.RouterGroup, h *Handler, rdb *redis.Client, db *gorm.
 	legacy := r.Group("/admin/orders")
 	{
 		legacy.GET("/cancel-requests", adminAuth("aftersale.view"), h.AdminLegacyList)
-		legacy.POST("/:order_id/cancel-request/approve",
+		legacy.POST("/:id/cancel-request/approve",
 			sensitive, adminAuth("aftersale.process"), h.AdminLegacyApprove)
-		legacy.POST("/:order_id/cancel-request/reject",
+		legacy.POST("/:id/cancel-request/reject",
 			sensitive, adminAuth("aftersale.process"), h.AdminLegacyReject)
 	}
 }

@@ -92,6 +92,7 @@ CREATE TABLE recall_log (
   campaign_id              bigint NOT NULL,
   user_id                  bigint NOT NULL,
   triggered_at             timestamptz NOT NULL DEFAULT now(),
+  triggered_at_date        date GENERATED ALWAYS AS ((triggered_at AT TIME ZONE 'UTC')::date) STORED,
   audience_snapshot        jsonb NOT NULL DEFAULT '{}'::jsonb,
   actions_result           jsonb NOT NULL DEFAULT '[]'::jsonb,
   opened_at                timestamptz,
@@ -100,7 +101,7 @@ CREATE TABLE recall_log (
   converted_gmv_cents      bigint NOT NULL DEFAULT 0
 );
 CREATE UNIQUE INDEX uq_recall_log_campaign_user_day
-  ON recall_log(campaign_id, user_id, (triggered_at::date));
+  ON recall_log(campaign_id, user_id, triggered_at_date);
 CREATE INDEX idx_recall_log_user_time ON recall_log(user_id, triggered_at DESC);
 CREATE INDEX idx_recall_log_camp_time ON recall_log(campaign_id, triggered_at DESC);
 CREATE INDEX idx_recall_log_converted ON recall_log(campaign_id) WHERE converted_order_id IS NOT NULL;

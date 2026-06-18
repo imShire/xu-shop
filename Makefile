@@ -11,10 +11,10 @@ help:
 	@echo "api-check    - 检查 admin 生成类型与 openapi.yaml 是否同步"
 
 deps-up:
-	docker compose -f server/deploy/docker-compose.dev.yml up -d
+	docker compose -f deploy/docker-compose.dev.yml up -d
 
 deps-down:
-	docker compose -f server/deploy/docker-compose.dev.yml down
+	docker compose -f deploy/docker-compose.dev.yml down
 
 server-run:
 	$(MAKE) -C server run-api

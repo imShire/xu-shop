@@ -26,6 +26,7 @@ services:
 
   asynqmon:
     image: hibiken/asynqmon:latest
+    platform: linux/amd64
     command: --redis-addr=redis:6379
     ports:
       - "8888:8080"

@@ -29,10 +29,10 @@ func RegisterRoutes(r *gin.RouterGroup, h *Handler, rdb *redis.Client, db *gorm.
 	r.PUT("/admin/tags/:id", adminAuth("tag.edit"), h.AdminUpdateTag)
 	r.DELETE("/admin/tags/:id", adminAuth("tag.delete"), h.AdminDeleteTag)
 
-	// 用户标签
-	r.GET("/admin/users/:id/tags", adminAuth("tag.view"), h.AdminGetUserTags)
-	r.POST("/admin/users/:id/tags", adminAuth("tag.create"), h.AdminAddUserTag)
-	r.DELETE("/admin/users/:id/tags/:tag_id", adminAuth("tag.create"), h.AdminRemoveUserTag)
+	// 用户标签（由 tag 模块统一提供 /admin/users/:id/tags，避免路由冲突）
+	// r.GET("/admin/users/:id/tags", adminAuth("tag.view"), h.AdminGetUserTags)
+	// r.POST("/admin/users/:id/tags", adminAuth("tag.create"), h.AdminAddUserTag)
+	// r.DELETE("/admin/users/:id/tags/:tag_id", adminAuth("tag.create"), h.AdminRemoveUserTag)
 
 	// C 端
 	r.POST("/c/share/visit", userAuth, h.RecordShareVisit)

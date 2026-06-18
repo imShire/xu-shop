@@ -266,7 +266,7 @@ func (h *Handler) AdminLegacyList(c *gin.Context) {
 
 // AdminLegacyApprove 同意旧取消申请。
 func (h *Handler) AdminLegacyApprove(c *gin.Context) {
-	orderID := mustParamID(c, "order_id")
+	orderID := mustParamID(c, "id")
 	if orderID == 0 {
 		return
 	}
@@ -280,7 +280,7 @@ func (h *Handler) AdminLegacyApprove(c *gin.Context) {
 
 // AdminLegacyReject 拒绝旧取消申请。
 func (h *Handler) AdminLegacyReject(c *gin.Context) {
-	orderID := mustParamID(c, "order_id")
+	orderID := mustParamID(c, "id")
 	if orderID == 0 {
 		return
 	}
